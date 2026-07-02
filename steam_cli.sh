@@ -38,6 +38,9 @@ NC='\033[0m'
 LIBRARIES=()
 GAMES=()
 GAME_PID=""
+CHECK="✔"
+XIS="✘"
+BOLINHO="●"
 
 divider() {
     echo -e "${AZUL}-----------------------------------------------${NC}"
@@ -438,6 +441,225 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ===============
+# PARAMETROS
+# ===============
+
+edit_params() {
+    local a="$1" n="$2"
+    local c
+    c=$(load_params "$a" 2>/dev/null) || true
+
+    while true; do
+        clear
+        echo -e "${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+        section_divider "Parametros"
+        echo ""
+        echo -e "  ${NEGRITO}${n}${NC}"
+        echo ""
+        echo -e "  Atual: ${CINZA}${c:-(vazio)}${NC}"
+        echo ""
+        echo -e "  [1]  Editar"
+        echo -e "  [2]  Limpar"
+        echo -e "  [${VERMELHO}0${NC}]  Voltar"
+        echo ""
+        read -p " > " opt
+        case "$opt" in
+            1)
+                echo ""
+                read -e -p " > " novo
+                if [[ -n "$novo" ]]; then
+                    save_params "$a" "$novo"
+                    c="$novo"
+                    echo -e "  ${CHECK} parametro salvo"
+                fi
+                sleep 1 ;;
+            2)
+                save_params "$a" ""
+                c=""
+                echo -e "  ${CHECK} parametro limpo"
+                sleep 1 ;;
+            0) return ;;
+        esac
+    done
+}
+
+# ===============
+# UPDATE
+# ===============
+
+check_update() {
+    [[ -z "$REPO_URL" ]] && return
+    local rv
+    rv=$(curl -s --connect-timeout 3 "$REPO_URL" | grep '^VERSION=' | head -1 | cut -d'"' -f2) || true
+    [[ -z "$rv" ]] || [[ "$rv" == "$VERSION" ]] && return
+
+    echo ""
+    echo -e "  ${AGL} nova versao: ${VERDE}v${rv}${NC} (atual: ${VERMELHO}v${VERSION}${NC})"
+    divider
+    echo ""
+    read -p " > " resp
+    case "${resp,,}" in
+        s|sim)
+            echo -e "  ${CINZA}[INFO] baixando v${rv} ..${NC}"
+            local tmp
+            tmp=$(mktemp)
+            if curl -sL --connect-timeout 10 "$REPO_URL" -o "$tmp"; then
+                chmod +x "$tmp"
+                cat "$tmp" > "$0"
+                rm -f "$tmp"
+                echo -e "  ${CHECK} atualizado. Reiniciando .."
+                exec "$0" "$@"
+            else
+                echo -e "  ${XIS} falha no download"
+                rm -f "$tmp"
+            fi ;;
+    esac
+}
+
+# ===============
+# BAIXAR JOGOS
+# ===============
+
+baixar_jogos() {
+    clear
+    echo -e "\n${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+    divider
+    echo ""
+    echo -e "  ${BOLINHO} ${VERDE}Manifest${NC} - baixar manifests Steam"
+    echo ""
+    if command -v manifest &>/dev/null; then
+        echo -e "  ${CINZA}github.com/aglairdev/Manifest${NC}"
+        echo ""
+        divider
+        echo ""
+        manifest
+        echo ""
+        echo "[scan] atualizando ..."
+        scan_games
+        filter_games
+        echo -e "  ${CHECK} lista atualizada"
+    else
+        echo -e "  ${AMARELO}[INFO]${NC} Manifest nao encontrado"
+        echo -e "  ${CINZA}github.com/aglairdev/Manifest${NC}"
+    fi
+    echo ""
+    read -p "  Enter para voltar"
+}
+
+# ===============
+# MENU DO JOGO
+# ===============
+
+show_game_menu() {
+    local game="$1"
+    IFS='|' read -r a n i l <<< "$game"
+
+    local hn hp pl
+    if find_linux_exe "$i" "$l" &>/dev/null; then
+        hn=true; hp=false; pl="Nativo"
+    else
+        hn=false
+        pl=$(get_proton_label "$a")
+        get_proton "$a" &>/dev/null && hp=true || hp=false
+    fi
+
+    while true; do
+        clear
+        echo ""
+        echo -e "${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+        section_divider "$n"
+        echo ""
+        if $hn; then
+            echo -e "  [1]  Jogar (Nativo)"
+        elif $hp; then
+            echo -e "  [1]  Jogar (${pl})"
+        else
+            echo -e "  [!]  Jogar (Proton nao configurado)"
+        fi
+        echo -e "  [2]  Parametros"
+        echo -e "  [${VERMELHO}3${NC}]  Excluir"
+        section_divider "Sair"
+        echo -e "  [${VERMELHO}0${NC}]  Voltar"
+        echo ""
+        read -p " > " c
+
+        case "$c" in
+            1)
+                if $hn; then launch_native "$a" "$n" "$i" "$l"
+                elif $hp; then launch_proton "$a" "$n" "$i" "$l"
+                fi
+                read -p "  Enter para continuar..." ;;
+            2) edit_params "$a" "$n" ;;
+            3)
+                echo ""
+                echo -e "  Excluir ${NEGRITO}${n}${NC}? (s/N)"
+                read -p " > " resp
+                case "${resp,,}" in
+                    s|sim)
+                        echo -e "  ${CINZA}[INFO] removendo ${n} ..${NC}"
+                        rm -rf "$l/steamapps/common/$i" 2>/dev/null || true
+                        rm -f "$l/steamapps/appmanifest_${a}.acf" 2>/dev/null || true
+                        rm -rf "$l/steamapps/compatdata/$a" 2>/dev/null || true
+                        echo -e "  ${CHECK} ${n} removido"
+                        local ng=()
+                        for g in "${GAMES[@]}"; do
+                            IFS='|' read -r ga _ _ _ <<< "$g"
+                            [[ "$ga" != "$a" ]] && ng+=("$g")
+                        done
+                        GAMES=("${ng[@]}"); sleep 1; return ;;
+                esac ;;
+            0) return ;;
+        esac
+    done
+}
+
+# ===============
+# MENU PRINCIPAL
+# ===============
+
+show_main_menu() {
+    while true; do
+        clear
+        echo ""
+        echo -e "${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+
+        if [[ ${#GAMES[@]} -eq 0 ]]; then
+            section_divider "Loja"
+            echo -e "  [${VERDE}B${NC}]  Baixar jogos"
+            section_divider "Sair"
+            echo -e "  [${VERMELHO}0${NC}]  Fechar"
+            echo ""
+            read -p " > " c
+            case "$c" in
+                0) prompt_exit_steam; exit 0 ;;
+                [bB]) baixar_jogos; scan_games; filter_games ;;
+            esac
+        else
+            section_divider "Loja"
+            echo -e "  [${VERDE}B${NC}]  Baixar jogos"
+            section_divider "Biblioteca"
+            local i=1
+            for game in "${GAMES[@]}"; do
+                IFS='|' read -r a n _ _ <<< "$game"
+                echo -e "  [${i}]  ${n}"
+                ((i++))
+            done
+            section_divider "Sair"
+            echo -e "  [${VERMELHO}0${NC}]  Fechar"
+            echo ""
+            read -p " > " c
+            case "$c" in
+                0) prompt_exit_steam; exit 0 ;;
+                [bB]) baixar_jogos; scan_games; filter_games ;;
+                [1-9]|[1-9][0-9])
+                    (( c >= 1 && c <= ${#GAMES[@]} )) \
+                        && show_game_menu "${GAMES[$((c-1))]}" ;;
+            esac
+        fi
+    done
+}
+
+# ===============
 # MAIN
 # ===============
 
@@ -461,18 +683,22 @@ main() {
     scan_games
     filter_games
 
-    echo -e "${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
-    echo ""
-    if [[ ${#GAMES[@]} -eq 0 ]]; then
-        echo -e "  ${AMARELO}Nenhum jogo encontrado${NC}"
+    if ! pgrep -x steam >/dev/null 2>&1; then
+        echo -e "  ${BOLINHO} STEAM_CLI v${VERSION} ${AGL}"
+        if command -v steam &>/dev/null; then
+            echo -e "  ${CINZA}[INFO] iniciando steam headless ..${NC}"
+            if $DEBUG; then $STEAM_CMD -no-browser -silent &
+            else $STEAM_CMD -no-browser -silent &>/dev/null & fi
+            sleep 2
+        else
+            echo -e "  ${AMARELO}[INFO]${NC} Steam nao encontrado"
+        fi
     else
-        local i=1
-        for game in "${GAMES[@]}"; do
-            IFS='|' read -r a n _ _ <<< "$game"
-            echo -e "  [${i}]  ${n}"
-            ((i++))
-        done
+        echo -e "  ${BOLINHO} STEAM_CLI v${VERSION} ${AGL}"
     fi
+
+    check_update "$@"
+    show_main_menu
 }
 
 main "$@"
