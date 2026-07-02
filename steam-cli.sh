@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 AGL="ꕤ"
 
 STEAM_HOME=""
@@ -770,7 +770,7 @@ show_main_menu() {
             read -p " > " c
             case "$c" in
                 0) $DEBUG && log_debug "OK  fechando steam-cli"; prompt_exit_steam; exit 0 ; true ;;
-                [bB]) $DEBUG && log_debug "OK  acessando baixar jogos"; scan_games; filter_games ; true ;;
+                [bB]) $DEBUG && log_debug "OK  acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
             esac
         else
             box_top
@@ -790,7 +790,7 @@ show_main_menu() {
             read -p " > " c
             case "$c" in
                 0) $DEBUG && log_debug "OK  fechando steam-cli"; prompt_exit_steam; exit 0 ; true ;;
-                [bB]) $DEBUG && log_debug "OK  acessando baixar jogos"; scan_games; filter_games ; true ;;
+                [bB]) $DEBUG && log_debug "OK  acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
                 [1-9]|[1-9][0-9])
                     if (( c >= 1 && c <= ${#GAMES[@]} )); then
                         show_game_menu "${GAMES[$((c-1))]}"
