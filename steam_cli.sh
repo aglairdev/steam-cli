@@ -6,7 +6,7 @@
 #
 # uso:  ./steam.sh
 #       ./steam.sh -d     #debug
-#       ./steam.sh -v     #versão
+#       ./steam.sh -v     #versao
 #       ./steam.sh -h     #ajuda
 #
 
@@ -19,6 +19,7 @@ STEAM_HOME=""
 STEAM_CMD="steam"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/steam_cli"
 DEBUG=false
+DEBUG_LOG=""
 
 REPO_URL="https://raw.githubusercontent.com/aglairdev/STEAM_CLI/main/steam_cli.sh"
 TOOLS_APPIDS=(1070560 1493710 1628350 2180100 228980 4183110)
@@ -40,14 +41,22 @@ GAMES=()
 GAME_PID=""
 CHECK="✔"
 XIS="✘"
-BOLINHO="●"
+BOLINHO="${VERDE}●${NC}"
+
+log_debug() {
+    local msg="$1"
+    local ts
+    ts=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "  ${CINZA}[DEBUG] ${msg}${NC}"
+    echo "[$ts] $msg" >> "$DEBUG_LOG"
+}
 
 divider() {
     echo -e "${AZUL}-----------------------------------------------${NC}"
 }
 
 section_divider() {
-    local name="$1" total=47 
+    local name="$1" total=47
     local len=${#name}
     local dash=$(( (total - len - 2) / 2 )) d="" e=""
     for ((i=0; i<dash; i++)); do d+="-"; done
@@ -186,7 +195,8 @@ filter_games() {
 # ===============
 
 find_game_exe() {
-    local i="$1" l="$2" d="$l/steamapps/common/$i"
+    local i="$1" l="$2"
+    local d="$l/steamapps/common/$i"
     [[ -d "$d" ]] || return 1
     local exes=()
     while IFS= read -r -d '' e; do
@@ -210,19 +220,42 @@ find_game_exe() {
 }
 
 find_linux_exe() {
-    local i="$1" l="$2" d="$l/steamapps/common/$i"
+    local i="$1" l="$2"
+    local d="$l/steamapps/common/$i"
     [[ -d "$d" ]] || return 1
-    local elfs=()
+    local il="${i,,}" elfs=()
     while IFS= read -r -d '' f; do
         file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$f")
-    done < <(find "$d" -maxdepth 1 -type f ! -name '*.*' -print0 2>/dev/null)
-    [[ ${#elfs[@]} -gt 0 ]] && { echo "${elfs[0]}"; return 0; }
-    local il="${i,,}"
+    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+
+    local candidate=""
+    for f in "${elfs[@]}"; do
+        local fn; fn=$(basename "$f"); fn="${fn,,}"
+        [[ "$fn" == "$il" ]] && { candidate="$f"; break; }
+    done
+    if [[ -z "$candidate" ]]; then
+        for f in "${elfs[@]}"; do
+            local fn; fn=$(basename "$f"); fn="${fn,,}"
+            [[ "$fn" == *launcher* ]] && { candidate="$f"; break; }
+        done
+    fi
+    if [[ -z "$candidate" ]]; then
+        for f in "${elfs[@]}"; do
+            [[ -x "$f" ]] && { candidate="$f"; break; }
+        done
+    fi
+    [[ -z "$candidate" ]] && candidate="${elfs[0]}"
+    [[ -n "$candidate" ]] && { echo "$candidate"; return 0; }
+
     for s in "start.sh" "launch.sh" "run.sh" "game.sh" "${il}.sh"; do
         [[ -f "$d/$s" ]] && { echo "$d/$s"; return 0; }
     done
     return 1
 }
+
+# ===============
+# RUNTIME
+# ===============
 
 find_runtime() {
     for l in "${LIBRARIES[@]}"; do
@@ -281,23 +314,37 @@ save_params() {
 # ===============
 
 launch_native() {
-    local a="$1" n="$2" i="$3" l="$4"
-    local d="$l/steamapps/common/$i"
+    local a="$1" n="$2" e="$3"
+    local d
+    d=$(dirname "$e")
     local p
     p=$(load_params "$a") || true
 
-    local e
-    e=$(find_linux_exe "$i" "$l") || true
-
-    if [[ -n "$e" ]] && [[ ! -x "$e" ]]; then
-        echo -e "  ${AMARELO}[INFO]${NC} sem permissao: $(basename "$e")"
-        read -p "  Adicionar? (s/N): " perm
-        case "${perm,,}" in s|sim) chmod +x "$e" 2>/dev/null || true ;; *) e="" ;; esac
+    local altered=false
+    while IFS= read -r -d '' f; do
+        if [[ ! -w "$f" ]] || [[ ! -x "$f" ]]; then
+            chmod +wx "$f" 2>/dev/null || true
+            altered=true
+        fi
+    done < <(find "$d" -maxdepth 2 -type f \( -executable -o -name '*launcher*' \) -print0 2>/dev/null)
+    while IFS= read -r -d '' f; do
+        if file -b "$f" 2>/dev/null | grep -qi "ELF.*executable"; then
+            if [[ ! -w "$f" ]] || [[ ! -x "$f" ]]; then
+                chmod +wx "$f" 2>/dev/null || true
+                altered=true
+            fi
+        fi
+    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+    local libdir="$d/lib"
+    if [[ -d "$libdir" ]] && [[ -n "$(find "$libdir" -type f ! -perm -o+w -print -quit 2>/dev/null)" ]]; then
+        find "$libdir" -type f ! -perm -o+w -exec chmod +wx {} \; 2>/dev/null || true
+        altered=true
     fi
+    $altered && echo -e "  ${CHECK} permissoes corrigidas"
 
     [[ -z "$e" ]] && {
         echo -e "  ${XIS} ${n} nao tem binario nativo"
-        echo -e "  ${CINZA}[INFO] use -d${NC}"
+        ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}"
         return
     }
 
@@ -305,42 +352,58 @@ launch_native() {
     b=$(basename "$e")
     export SteamAppId="$a" SteamGameId="$a"
 
-    # 1a. Tenta direto
+    if $DEBUG; then
+        log_debug "OK  binario: $e"
+        if [[ -z "$p" ]]; then
+            log_debug "OK  params: nenhum"
+        else
+            log_debug "OK  params: $p"
+        fi
+    fi
+
     (cd "$d"; if $DEBUG; then "./$b" $p; else "./$b" $p &>/dev/null; fi) &
     GAME_PID=$!; sleep 1
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
         echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
         echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
+        $DEBUG && log_debug "OK  iniciado (pid: $GAME_PID)"
         wait "$GAME_PID" 2>/dev/null || true
-        echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"; GAME_PID=""; return
+        echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
+        $DEBUG && log_debug "OK  fechado (exit: $?)"
+        GAME_PID=""; return
     fi
     wait "$GAME_PID" 2>/dev/null || true
 
-    # 1b. Falhou ~ tenta runtime
     local rt
     rt=$(find_runtime) || true
     if [[ -n "$rt" ]]; then
+        $DEBUG && log_debug "OK  runtime: $rt"
         (cd "$d"; if $DEBUG; then "$rt" -- "./$b" $p; else "$rt" -- "./$b" $p &>/dev/null; fi) &
         GAME_PID=$!; sleep 1
         if kill -0 "$GAME_PID" 2>/dev/null; then
             echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
             echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
+            $DEBUG && log_debug "OK  iniciado via runtime (pid: $GAME_PID)"
             wait "$GAME_PID" 2>/dev/null || true
-            echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"; GAME_PID=""; return
+            echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
+            $DEBUG && log_debug "OK  fechado via runtime (exit: $?)"
+            GAME_PID=""; return
         fi
         wait "$GAME_PID" 2>/dev/null || true
+    else
+        $DEBUG && log_debug "FALHA runtime nao encontrado"
     fi
 
-    # 1c. Tenta binario alternativo
     local rest=()
     while IFS= read -r -d '' f; do
         file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && [[ "$f" != "$e" ]] && rest+=("$f")
-    done < <(find "$d" -maxdepth 1 -type f ! -name '*.*' -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
 
     if [[ ${#rest[@]} -gt 0 ]]; then
         local s="${rest[0]}" sn
         sn=$(basename "$s")
+        $DEBUG && log_debug "OK  alternativo: $s"
         if [[ -n "$rt" ]]; then
             (cd "$d"; if $DEBUG; then "$rt" -- "./$sn" $p; else "$rt" -- "./$sn" $p &>/dev/null; fi) &
         else
@@ -350,13 +413,17 @@ launch_native() {
         if kill -0 "$GAME_PID" 2>/dev/null; then
             echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
             echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
+            $DEBUG && log_debug "OK  iniciado via alternativo (pid: $GAME_PID)"
             wait "$GAME_PID" 2>/dev/null || true
-            echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"; GAME_PID=""; return
+            echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
+            $DEBUG && log_debug "OK  fechado via alternativo (exit: $?)"
+            GAME_PID=""; return
         fi
         wait "$GAME_PID" 2>/dev/null || true
     fi
 
     echo -e "  ${XIS} ${NEGRITO}${n}${NC} nao iniciou"
+    $DEBUG && log_debug "FALHA ${n} nao iniciou"
     ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}"
     GAME_PID=""
 }
@@ -366,31 +433,39 @@ launch_native() {
 # ===============
 
 launch_proton() {
-    local a="$1" n="$2" i="$3" l="$4"
-    local d="$l/steamapps/common/$i"
+    local a="$1" n="$2" e="$3"
+    local d
+    d=$(dirname "$e")
     local p
     p=$(load_params "$a") || true
     local pl
     pl=$(get_proton_label "$a")
 
-    local e
-    e=$(find_game_exe "$i" "$l") || true
-
     [[ -z "$e" ]] && {
         echo -e "  ${XIS} .exe nao encontrado para ${NEGRITO}${n}${NC}"
+        $DEBUG && log_debug "FALHA .exe nao encontrado para ${n}"
         ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}"
         return
     }
 
     local pr
     pr=$(get_proton "$a")
-    local cd="$l/steamapps/compatdata/$a"
 
     [[ -z "$pr" ]] || [[ ! -f "$pr" ]] && {
         echo -e "  ${XIS} Proton nao encontrado para ${NEGRITO}${n}${NC}"
         echo -e "  ${CINZA}[INFO] configure ${CONFIG_DIR}/proton.conf${NC}"
+        $DEBUG && log_debug "FALHA Proton nao encontrado para ${a}"
         read -p "  Enter para voltar..."; return
     }
+
+    local cd="${d%%/common/$i}/compatdata/$a"
+
+    if $DEBUG; then
+        log_debug "OK  .exe: $e"
+        log_debug "OK  proton: $pr"
+        log_debug "OK  compatdata: $cd"
+        log_debug "OK  STEAM_HOME: $STEAM_HOME"
+    fi
 
     mkdir -p "$cd"
     export STEAM_COMPAT_DATA_PATH="$cd"
@@ -405,11 +480,14 @@ launch_proton() {
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
         echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
+        $DEBUG && log_debug "OK  iniciado via proton (pid: $GAME_PID)"
         wait "$GAME_PID" 2>/dev/null || true
         echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
+        $DEBUG && log_debug "OK  fechado via proton (exit: $?)"
     else
         wait "$GAME_PID" 2>/dev/null || true
         echo -e "  ${XIS} ${NEGRITO}${n}${NC} nao iniciou via Proton"
+        $DEBUG && log_debug "FALHA ${n} nao iniciou via Proton"
         ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}"
     fi
     GAME_PID=""
@@ -438,6 +516,12 @@ cleanup() {
         kill -- "-$GAME_PID" 2>/dev/null || true
         wait "$GAME_PID" 2>/dev/null || true
     fi
+    if $DEBUG && [[ -n "$DEBUG_LOG" ]]; then
+        local ts
+        ts=$(date '+%Y-%m-%d %H:%M:%S')
+        echo "[$ts] === FIM DA SESSAO ===" >> "$DEBUG_LOG"
+        echo "--" >> "$DEBUG_LOG"
+    fi
 }
 trap cleanup EXIT INT TERM
 
@@ -447,21 +531,21 @@ trap cleanup EXIT INT TERM
 
 edit_params() {
     local a="$1" n="$2"
-    local c
+    local c=""
     c=$(load_params "$a" 2>/dev/null) || true
 
     while true; do
         clear
-        echo -e "${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+        local debug_tag=""
+        $DEBUG && debug_tag="[DEBUG] "
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // STEAM_CLI ${AGL}${NC}"
         section_divider "Parametros"
-        echo ""
         echo -e "  ${NEGRITO}${n}${NC}"
-        echo ""
-        echo -e "  Atual: ${CINZA}${c:-(vazio)}${NC}"
+        echo -e "  Atual:${CINZA}${c:-(vazio)}${NC}"
         echo ""
         echo -e "  [1]  Editar"
         echo -e "  [2]  Limpar"
-        echo -e "  [${VERMELHO}0${NC}]  Voltar"
+        echo -e "  [0]  Voltar"
         echo ""
         read -p " > " opt
         case "$opt" in
@@ -471,14 +555,14 @@ edit_params() {
                 if [[ -n "$novo" ]]; then
                     save_params "$a" "$novo"
                     c="$novo"
+                    $DEBUG && log_debug "OK  param salvo: $novo (appid $a)"
                     echo -e "  ${CHECK} parametro salvo"
-                fi
-                sleep 1 ;;
+                fi ; true ;;
             2)
                 save_params "$a" ""
                 c=""
-                echo -e "  ${CHECK} parametro limpo"
-                sleep 1 ;;
+                $DEBUG && log_debug "OK  param limpo (appid $a)"
+                echo -e "  ${CHECK} parametro limpo" ; true ;;
             0) return ;;
         esac
     done
@@ -497,10 +581,11 @@ check_update() {
     echo ""
     echo -e "  ${AGL} nova versao: ${VERDE}v${rv}${NC} (atual: ${VERMELHO}v${VERSION}${NC})"
     divider
-    echo ""
-    read -p " > " resp
+    sleep 1
+    read -p "  Atualizar? (s/N): " resp
     case "${resp,,}" in
         s|sim)
+            $DEBUG && log_debug "OK  atualizando v$VERSION -> v$rv"
             echo -e "  ${CINZA}[INFO] baixando v${rv} ..${NC}"
             local tmp
             tmp=$(mktemp)
@@ -513,8 +598,9 @@ check_update() {
             else
                 echo -e "  ${XIS} falha no download"
                 rm -f "$tmp"
-            fi ;;
+            fi ; true ;;
     esac
+    echo ""
 }
 
 # ===============
@@ -523,16 +609,16 @@ check_update() {
 
 baixar_jogos() {
     clear
-    echo -e "\n${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+    local debug_tag=""
+    $DEBUG && debug_tag="[DEBUG] "
+    echo -e "  ${CINZA}${debug_tag}v${VERSION} // STEAM_CLI ${AGL}${NC}"
     divider
-    echo ""
-    echo -e "  ${BOLINHO} ${VERDE}Manifest${NC} - baixar manifests Steam"
+    echo -e "  ${VERDE}Manifest${NC} ~ baixar manifests Steam"
     echo ""
     if command -v manifest &>/dev/null; then
+        $DEBUG && log_debug "OK  Manifest: baixando jogos"
         echo -e "  ${CINZA}github.com/aglairdev/Manifest${NC}"
-        echo ""
         divider
-        echo ""
         manifest
         echo ""
         echo "[scan] atualizando ..."
@@ -540,10 +626,10 @@ baixar_jogos() {
         filter_games
         echo -e "  ${CHECK} lista atualizada"
     else
+        $DEBUG && log_debug "FALHA Manifest nao instalado"
         echo -e "  ${AMARELO}[INFO]${NC} Manifest nao encontrado"
         echo -e "  ${CINZA}github.com/aglairdev/Manifest${NC}"
     fi
-    echo ""
     read -p "  Enter para voltar"
 }
 
@@ -554,25 +640,27 @@ baixar_jogos() {
 show_game_menu() {
     local game="$1"
     IFS='|' read -r a n i l <<< "$game"
+    $DEBUG && log_debug "OK  menu: $n (appid $a)"
 
-    local hn hp pl
-    if find_linux_exe "$i" "$l" &>/dev/null; then
-        hn=true; hp=false; pl="Nativo"
+    local linux_exe="" win_exe="" hn=false hp=false pl=""
+    linux_exe=$(find_linux_exe "$i" "$l" 2>/dev/null) || true
+    if [[ -n "$linux_exe" ]]; then
+        hn=true; pl="Nativo"
     else
-        hn=false
+        win_exe=$(find_game_exe "$i" "$l" 2>/dev/null) || true
         pl=$(get_proton_label "$a")
         get_proton "$a" &>/dev/null && hp=true || hp=false
     fi
 
     while true; do
         clear
-        echo ""
-        echo -e "${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+        local debug_tag=""
+        $DEBUG && debug_tag="[DEBUG] "
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // STEAM_CLI ${AGL}${NC}"
         section_divider "$n"
-        echo ""
-        if $hn; then
+        if [[ $hn == true ]]; then
             echo -e "  [1]  Jogar (Nativo)"
-        elif $hp; then
+        elif [[ $hp == true ]]; then
             echo -e "  [1]  Jogar (${pl})"
         else
             echo -e "  [!]  Jogar (Proton nao configurado)"
@@ -580,37 +668,41 @@ show_game_menu() {
         echo -e "  [2]  Parametros"
         echo -e "  [${VERMELHO}3${NC}]  Excluir"
         section_divider "Sair"
-        echo -e "  [${VERMELHO}0${NC}]  Voltar"
+        echo -e "  [0]  Voltar"
         echo ""
         read -p " > " c
 
-        case "$c" in
-            1)
-                if $hn; then launch_native "$a" "$n" "$i" "$l"
-                elif $hp; then launch_proton "$a" "$n" "$i" "$l"
-                fi
-                read -p "  Enter para continuar..." ;;
-            2) edit_params "$a" "$n" ;;
-            3)
-                echo ""
-                echo -e "  Excluir ${NEGRITO}${n}${NC}? (s/N)"
-                read -p " > " resp
-                case "${resp,,}" in
-                    s|sim)
-                        echo -e "  ${CINZA}[INFO] removendo ${n} ..${NC}"
-                        rm -rf "$l/steamapps/common/$i" 2>/dev/null || true
-                        rm -f "$l/steamapps/appmanifest_${a}.acf" 2>/dev/null || true
-                        rm -rf "$l/steamapps/compatdata/$a" 2>/dev/null || true
-                        echo -e "  ${CHECK} ${n} removido"
-                        local ng=()
-                        for g in "${GAMES[@]}"; do
-                            IFS='|' read -r ga _ _ _ <<< "$g"
-                            [[ "$ga" != "$a" ]] && ng+=("$g")
-                        done
-                        GAMES=("${ng[@]}"); sleep 1; return ;;
-                esac ;;
-            0) return ;;
-        esac
+        if [[ "$c" == "1" ]]; then
+            if [[ $hn == true ]]; then
+                launch_native "$a" "$n" "$linux_exe"
+            elif [[ $hp == true ]]; then
+                launch_proton "$a" "$n" "$win_exe"
+            fi
+            read -p "  Enter para continuar..."
+        elif [[ "$c" == "2" ]]; then
+            edit_params "$a" "$n"
+        elif [[ "$c" == "3" ]]; then
+            echo ""
+            echo -e "  Excluir ${NEGRITO}${n}${NC}? (s/N)"
+            read -p " > " resp
+            case "${resp,,}" in
+                s|sim)
+                    $DEBUG && log_debug "OK  removendo jogo: $n (appid $a)"
+                    echo -e "  ${CINZA}[INFO] removendo ${n} ..${NC}"
+                    rm -rf "$l/steamapps/common/$i" 2>/dev/null || true
+                    rm -f "$l/steamapps/appmanifest_${a}.acf" 2>/dev/null || true
+                    rm -rf "$l/steamapps/compatdata/$a" 2>/dev/null || true
+                    echo -e "  ${CHECK} ${n} removido"
+                    local ng=()
+                    for g in "${GAMES[@]}"; do
+                        IFS='|' read -r ga _ _ _ <<< "$g"
+                        [[ "$ga" != "$a" ]] && ng+=("$g")
+                    done
+                    GAMES=("${ng[@]}"); sleep 1; return ; true ;;
+            esac
+        elif [[ "$c" == "0" ]]; then
+            return
+        fi
     done
 }
 
@@ -619,21 +711,26 @@ show_game_menu() {
 # ===============
 
 show_main_menu() {
+    local first=true
     while true; do
         clear
-        echo ""
-        echo -e "${CINZA}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+        if [[ $first == true ]]; then
+            check_update "$@"
+            first=false
+        fi
+        local debug_tag=""
+        $DEBUG && debug_tag="[DEBUG] "
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // STEAM_CLI ${AGL}${NC}"
 
         if [[ ${#GAMES[@]} -eq 0 ]]; then
             section_divider "Loja"
             echo -e "  [${VERDE}B${NC}]  Baixar jogos"
             section_divider "Sair"
             echo -e "  [${VERMELHO}0${NC}]  Fechar"
-            echo ""
             read -p " > " c
             case "$c" in
-                0) prompt_exit_steam; exit 0 ;;
-                [bB]) baixar_jogos; scan_games; filter_games ;;
+                0) $DEBUG && log_debug "OK  fechando steam_cli"; prompt_exit_steam; exit 0 ; true ;;
+                [bB]) $DEBUG && log_debug "OK  acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
             esac
         else
             section_divider "Loja"
@@ -650,11 +747,12 @@ show_main_menu() {
             echo ""
             read -p " > " c
             case "$c" in
-                0) prompt_exit_steam; exit 0 ;;
-                [bB]) baixar_jogos; scan_games; filter_games ;;
+                0) $DEBUG && log_debug "OK  fechando steam_cli"; prompt_exit_steam; exit 0 ; true ;;
+                [bB]) $DEBUG && log_debug "OK  acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
                 [1-9]|[1-9][0-9])
-                    (( c >= 1 && c <= ${#GAMES[@]} )) \
-                        && show_game_menu "${GAMES[$((c-1))]}" ;;
+                    if (( c >= 1 && c <= ${#GAMES[@]} )); then
+                        show_game_menu "${GAMES[$((c-1))]}"
+                    fi ; true ;;
             esac
         fi
     done
@@ -678,28 +776,43 @@ main() {
         esac; shift
     done
 
+    if $DEBUG; then
+        DEBUG_LOG="$CONFIG_DIR/debug.log"
+        local ts
+        ts=$(date '+%Y-%m-%d %H:%M:%S')
+        if [[ ! -f "$DEBUG_LOG" ]]; then
+            echo "--" > "$DEBUG_LOG"
+        fi
+        echo "[$ts] === INICIO SESSAO DEBUG ===" >> "$DEBUG_LOG"
+        echo "[$ts] steam_cli v$VERSION" >> "$DEBUG_LOG"
+    fi
+
     setup_config
     detect_steam_installation
     detect_libraries
     scan_games
     filter_games
 
+    local debug_tag=""
+    $DEBUG && debug_tag="[DEBUG] "
+
     if ! pgrep -x steam >/dev/null 2>&1; then
-        echo -e "  ${BOLINHO} STEAM_CLI v${VERSION} ${AGL}"
+        echo -e "  ${BOLINHO} ${debug_tag}STEAM_CLI v${VERSION} ${AGL}"
         if command -v steam &>/dev/null; then
             echo -e "  ${CINZA}[INFO] iniciando steam headless ..${NC}"
+            $DEBUG && log_debug "OK  iniciando steam headless"
             if $DEBUG; then $STEAM_CMD -no-browser -silent &
             else $STEAM_CMD -no-browser -silent &>/dev/null & fi
             sleep 2
         else
             echo -e "  ${AMARELO}[INFO]${NC} Steam nao encontrado"
+            $DEBUG && log_debug "FALHA steam binary nao encontrado"
         fi
     else
-        echo -e "  ${BOLINHO} STEAM_CLI v${VERSION} ${AGL}"
+        echo -e "  ${BOLINHO} ${debug_tag}STEAM_CLI v${VERSION} ${AGL}"
     fi
 
-    check_update "$@"
-    show_main_menu
+    show_main_menu "$@"
 }
 
 main "$@"
