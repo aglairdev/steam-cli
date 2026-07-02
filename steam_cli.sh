@@ -47,7 +47,8 @@ divider() {
 }
 
 section_divider() {
-    local name="$1" total=47 len=${#name}
+    local name="$1" total=47 
+    local len=${#name}
     local dash=$(( (total - len - 2) / 2 )) d="" e=""
     for ((i=0; i<dash; i++)); do d+="-"; done
     for ((i=0; i<total - len - 2 - dash*2; i++)); do e+="-"; done
