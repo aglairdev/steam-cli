@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-VERSION="1.0.2"
+VERSION="1.0.3"
 AGL="ꕤ"
 
 STEAM_HOME=""
@@ -178,10 +178,10 @@ scan_games() {
         while IFS= read -r m; do
             [[ -f "$m" ]] || continue
             local a n i lp ts
-            a=$(grep '"appid"' "$m" | sed 's/.*"appid"[[:space:]]*"\(.*\)"/\1/')
-            n=$(grep '"name"' "$m" | sed 's/.*"name"[[:space:]]*"\(.*\)"/\1/')
-            i=$(grep '"installdir"' "$m" | sed 's/.*"installdir"[[:space:]]*"\(.*\)"/\1/')
-            lp=$(grep '"LastPlayed"' "$m" | sed 's/.*"LastPlayed"[[:space:]]*"\(.*\)"/\1/')
+            a=$(grep '"appid"' "$m" | sed 's/.*"appid"[[:space:]]*"\(.*\)"/\1/') || true
+            n=$(grep '"name"' "$m" | sed 's/.*"name"[[:space:]]*"\(.*\)"/\1/') || true
+            i=$(grep '"installdir"' "$m" | sed 's/.*"installdir"[[:space:]]*"\(.*\)"/\1/') || true
+            lp=$(grep '"LastPlayed"' "$m" | sed 's/.*"LastPlayed"[[:space:]]*"\(.*\)"/\1/') || true
             ts=${lp:-$(stat --format='%Y' "$m" 2>/dev/null || echo 0)}
             temp+=("$ts|$a|$n|$i|$lib")
         done < <(find "$d" -maxdepth 1 -name 'appmanifest_*.acf' \
