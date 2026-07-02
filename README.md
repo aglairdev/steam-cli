@@ -1,6 +1,6 @@
 <div align="center">
 
-[![STEAM-CLI](https://img.shields.io/badge/STEAM--CLI-1b2838?style=for-the-badge)](https://github.com/aglairdev/steam-cli)
+[![STEAM-CLI](https://img.shields.io/badge/STEAM--CLI-3a6f8f?style=for-the-badge)](https://github.com/aglairdev/steam-cli)
 </div>
 
 ## Que isso?
@@ -11,9 +11,11 @@ Gerenciador de jogos Steam no terminal, com lançamento nativo e via Proton.
 
 <div align="center">
 
-| Menu principal | Nativo | Proton | Parâmetros |
-|:---:|:---:|:---:|:---:|
-| ![menu](https://github.com/user-attachments/assets/00000000-0000-0000-0000-000000000001) | ![nativo](https://github.com/user-attachments/assets/00000000-0000-0000-0000-000000000002) | ![proton](https://github.com/user-attachments/assets/00000000-0000-0000-0000-000000000003) | ![params](https://github.com/user-attachments/assets/00000000-0000-0000-0000-000000000004) |
+| Menu | Nativo |
+|:---:|:---:|
+| ![menu demo](https://github.com/user-attachments/assets/a7b0ec43-71ff-449c-a7a3-94382bb50075) | ![nativo demo](https://github.com/user-attachments/assets/cd8297a7-fdc6-4070-804c-b27241f5cb6d) |
+| Proton | Parâmetros |
+| ![proton demo](https://github.com/user-attachments/assets/9f6394fa-8eba-426e-afee-7d413fa5099b) | ![params demo](https://github.com/user-attachments/assets/1e3ec7ed-a9de-4f29-8015-e49dcd1abfbe) |
 
 </div>
 
@@ -23,9 +25,13 @@ Gerenciador de jogos Steam no terminal, com lançamento nativo e via Proton.
 curl -fsSL steam-cli.pages.dev/install | bash
 ```
 
+> [!CAUTION]
+> Jogos Windows exigem **Proton instalado** ~ o script detecta e usa o primeiro Proton que encontrar.
+
 > [!WARNING]
-> Você precisa abrir a Steam GUI **pelo menos uma vez** para definir bibliotecas alternativas (se não quiser usar a padrão `~/.steam/steam` e caso escolha usar o manifest para baixar jogos).  
-> Jogos Windows exigem **Proton instalado** ~ o script detecta e usa o primeiro Proton que encontrar.  
+> Você precisa abrir a Steam GUI **pelo menos uma vez** para definir bibliotecas alternativas (se não quiser usar a padrão `~/.steam/steam` e caso escolha usar o manifest para baixar jogos).
+
+> [!NOTE]
 > A opção de baixar jogos via [Manifest](https://github.com/aglairdev/Manifest) é opcional; sem ela o script gerencia apenas jogos já instalados.
 
 **Requisitos:** `steam` `bash` `curl`
