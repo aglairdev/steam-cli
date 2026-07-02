@@ -1,0 +1,112 @@
+#!/bin/bash
+#
+# © 2026 ~ AGL ~ github.com/aglairdev
+#
+
+STEAM_BLUE="\e[38;2;27;40;56m"    
+STEAM_BLUE_L="\e[38;2;45;90;140m" 
+GREEN="\e[32m"
+YELLOW="\e[33m"
+RED="\e[31m"
+RESET="\e[0m"
+CHECK="✓"
+CROSS="✗"
+AGL="ꕤ"
+
+DIR_BIN="$HOME/.local/bin"
+DIR_CONF="$HOME/.config/steam-cli"                          
+REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-cli/main/steam-cli.sh"  
+BIN_NAME="steam-cli"                                         
+
+clear
+echo ""
+echo -e "  ${STEAM_BLUE_L}steam-cli ${AGL}${RESET}\n"       
+echo -e "  Estabelecendo conexão com o repositório..."
+
+check_deps() {
+    local deps=("curl")
+    local missing=()
+    for dep in "${deps[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            missing+=("$dep")
+        fi
+    done
+
+    if [ ${#missing[@]} -ne 0 ]; then
+        echo -e "\n  ${YELLOW}Para funcionar, o steam-cli precisa de:${RESET} ${missing[*]}" 
+        read -p "  Permitir que o instalador tente resolver via gerenciador de pacotes? (s/n): " auth
+        if [[ "$auth" == "s" ]]; then
+            if command -v dnf &> /dev/null; then
+                sudo dnf install -y "${missing[@]}"
+            elif command -v apt &> /dev/null; then
+                sudo apt update && sudo apt install -y "${missing[@]}"
+            elif command -v pacman &> /dev/null; then
+                sudo pacman -S --noconfirm "${missing[@]}"
+            else
+                echo -e "\n  ${RED}${CROSS} Gerenciador de pacotes não identificado.${RESET}"
+                exit 1
+            fi
+        else
+            echo -e "\n  Instalação interrompida."
+            exit 1
+        fi
+    fi
+}
+
+check_deps
+
+mkdir -p "$DIR_BIN"
+mkdir -p "$DIR_CONF/params"  
+
+sleep 1
+HTTP_STATUS=$(curl -L -w "%{http_code}" "$REPO_URL" -o "$DIR_CONF/$BIN_NAME.sh" --silent)
+
+if [ "$HTTP_STATUS" -eq 200 ]; then
+    chmod +x "$DIR_CONF/$BIN_NAME.sh"
+
+    rm -f "$DIR_BIN/$BIN_NAME"
+
+    if ln -s "$DIR_CONF/$BIN_NAME.sh" "$DIR_BIN/$BIN_NAME" 2>/dev/null; then
+        echo -e "\n  ${GREEN}${CHECK}${RESET} steam-cli configurado com sucesso!"  
+    else
+        if [[ ":$PATH:" == *":$DIR_BIN:"* ]]; then
+            if sudo ln -sf "$DIR_CONF/$BIN_NAME.sh" "$DIR_BIN/$BIN_NAME" 2>/dev/null; then
+                echo -e "\n  ${GREEN}${CHECK}${RESET} steam-cli configurado com sucesso!"  
+            else
+                echo -e "\n  ${RED}${CROSS} Não foi possível criar o link simbólico.${RESET}"
+                echo -e "  Execute manualmente:"
+                echo -e "${STEAM_BLUE_L}  sudo ln -sf $DIR_CONF/$BIN_NAME.sh $DIR_BIN/$BIN_NAME${RESET}"
+                exit 1
+            fi
+        else
+            echo -e "\n  ${RED}${CROSS} Não foi possível criar o link simbólico.${RESET}"
+            echo -e "  O diretório $DIR_BIN não está no seu PATH."
+            echo -e "  Adicione ao seu ~/.bashrc ou ~/.zshrc:"
+            echo -e "${STEAM_BLUE_L}  export PATH=\$PATH:\$HOME/.local/bin${RESET}"
+            echo -e "  Depois execute manualmente:"
+            echo -e "${STEAM_BLUE_L}  sudo ln -sf $DIR_CONF/$BIN_NAME.sh $DIR_BIN/$BIN_NAME${RESET}"
+            exit 1
+        fi
+    fi
+
+    if [[ ! -f "$DIR_CONF/proton.conf" ]]; then
+        cat > "$DIR_CONF/proton.conf" <<- EOC
+# Proton padrao global (descomente e configure):
+# PROTON_DEFAULT="/caminho/para/seu/proton"
+
+# Proton por appid (descomente e configure):
+# PROTON_413150="/caminho/para/outro/proton"
+EOC
+    fi
+
+    if [[ ":$PATH:" != *":$DIR_BIN:"* ]]; then
+        echo -e "\n  ${YELLOW}Atenção:${RESET} O diretório $DIR_BIN não está no seu PATH."
+        echo -e "  Adicione esta linha ao seu .bashrc ou .zshrc para usar o comando:"
+        echo -e "${STEAM_BLUE_L}export PATH=\$PATH:\$HOME/.local/bin${RESET}"
+    else
+        echo -e "\n  Tudo pronto. Basta digitar ${STEAM_BLUE_L}steam-cli${RESET} para começar.\n" 
+    fi
+else
+    echo -e "\n  ${RED}${CROSS} Ops! Ocorreu um problema ao baixar o arquivo.${RESET}"
+    exit 1
+fi
