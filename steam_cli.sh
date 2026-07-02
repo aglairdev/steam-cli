@@ -21,7 +21,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/steam_cli"
 DEBUG=false
 DEBUG_LOG=""
 
-REPO_URL="https://raw.githubusercontent.com/aglairdev/STEAM_CLI/main/steam_cli.sh"
+REPO_URL="https://raw.githubusercontent.com/aglairdev/steam_cli/main/steam_cli.sh"
 TOOLS_APPIDS=(1070560 1493710 1628350 2180100 228980 4183110)
 
 VERDE='\033[38;2;120;170;120m'
@@ -55,13 +55,34 @@ divider() {
     echo -e "${AZUL}-----------------------------------------------${NC}"
 }
 
-section_divider() {
-    local name="$1" total=47
-    local len=${#name}
-    local dash=$(( (total - len - 2) / 2 )) d="" e=""
-    for ((i=0; i<dash; i++)); do d+="-"; done
-    for ((i=0; i<total - len - 2 - dash*2; i++)); do e+="-"; done
-    echo -e "${AZUL}${d} ${name} ${d}${e}${NC}"
+BOXW=44
+box_top() {
+    local d
+    d=$(printf '─%.0s' $(seq 1 $BOXW))
+    echo -e "${AZUL}┌${d}┐${NC}"
+}
+box_bottom() {
+    local d
+    d=$(printf '─%.0s' $(seq 1 $BOXW))
+    echo -e "${AZUL}└${d}┘${NC}"
+}
+box_mid() {
+    local titulo="$1" len=${#1}
+    local total=$((BOXW - len - 2))
+    local esq dir de dd
+    esq=$((total / 2))
+    dir=$((total - esq))
+    de=$(printf '─%.0s' $(seq 1 $esq))
+    dd=$(printf '─%.0s' $(seq 1 $dir))
+    echo -e "${AZUL}├${de} ${titulo} ${dd}┤${NC}"
+}
+box_row() {
+    local plano="$1" colorido="${2:-$1}"
+    local pad=$((BOXW - ${#plano}))
+    (( pad < 0 )) && pad=0
+    local esp
+    esp=$(printf '%*s' "$pad" "")
+    echo -e "${AZUL}│${NC}${colorido}${esp}${AZUL}│${NC}"
 }
 
 # ===============
@@ -150,19 +171,27 @@ detect_libraries() {
 # ===============
 
 scan_games() {
-    GAMES=()
+    local temp=()
     for lib in "${LIBRARIES[@]}"; do
         local d="$lib/steamapps"
         [[ -d "$d" ]] || continue
         while IFS= read -r m; do
             [[ -f "$m" ]] || continue
-            local a n i
+            local a n i lp ts
             a=$(grep '"appid"' "$m" | sed 's/.*"appid"[[:space:]]*"\(.*\)"/\1/')
             n=$(grep '"name"' "$m" | sed 's/.*"name"[[:space:]]*"\(.*\)"/\1/')
             i=$(grep '"installdir"' "$m" | sed 's/.*"installdir"[[:space:]]*"\(.*\)"/\1/')
-            GAMES+=("$a|$n|$i|$lib")
+            lp=$(grep '"LastPlayed"' "$m" | sed 's/.*"LastPlayed"[[:space:]]*"\(.*\)"/\1/')
+            ts=${lp:-$(stat --format='%Y' "$m" 2>/dev/null || echo 0)}
+            temp+=("$ts|$a|$n|$i|$lib")
         done < <(find "$d" -maxdepth 1 -name 'appmanifest_*.acf' \
             -exec stat --format='%Y %n' {} \; 2>/dev/null | sort -n | cut -d' ' -f2-)
+    done
+    IFS=$'\n' temp=($(sort -t'|' -k1 -rn <<< "${temp[*]}"))
+    unset IFS
+    GAMES=()
+    for g in "${temp[@]}"; do
+        GAMES+=("${g#*|}")
     done
 }
 
@@ -322,15 +351,15 @@ launch_native() {
 
     local altered=false
     while IFS= read -r -d '' f; do
-        if [[ ! -w "$f" ]] || [[ ! -x "$f" ]]; then
-            chmod +wx "$f" 2>/dev/null || true
+        if [[ ! -x "$f" ]]; then
+            chmod +x "$f" 2>/dev/null || true
             altered=true
         fi
     done < <(find "$d" -maxdepth 2 -type f \( -executable -o -name '*launcher*' \) -print0 2>/dev/null)
     while IFS= read -r -d '' f; do
         if file -b "$f" 2>/dev/null | grep -qi "ELF.*executable"; then
-            if [[ ! -w "$f" ]] || [[ ! -x "$f" ]]; then
-                chmod +wx "$f" 2>/dev/null || true
+            if [[ ! -x "$f" ]]; then
+                chmod +x "$f" 2>/dev/null || true
                 altered=true
             fi
         fi
@@ -538,14 +567,17 @@ edit_params() {
         clear
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] "
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // STEAM_CLI ${AGL}${NC}"
-        section_divider "Parametros"
-        echo -e "  ${NEGRITO}${n}${NC}"
-        echo -e "  Atual:${CINZA}${c:-(vazio)}${NC}"
-        echo ""
-        echo -e "  [1]  Editar"
-        echo -e "  [2]  Limpar"
-        echo -e "  [0]  Voltar"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam_cli ${AGL}${NC}"
+        box_top
+        box_mid "Parametros"
+        box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
+        box_row "  Atual:${c:-(vazio)}" "  Atual:${CINZA}${c:-(vazio)}${NC}"
+        box_row ""
+        box_row "  [1]  Editar" "  [${AMARELO}1${NC}]  Editar"
+        box_row "  [2]  Limpar" "  [${AMARELO}2${NC}]  Limpar"
+        box_mid "Sair"
+        box_row "  [0]  Voltar"
+        box_bottom
         echo ""
         read -p " > " opt
         case "$opt" in
@@ -611,7 +643,7 @@ baixar_jogos() {
     clear
     local debug_tag=""
     $DEBUG && debug_tag="[DEBUG] "
-    echo -e "  ${CINZA}${debug_tag}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+    echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam_cli ${AGL}${NC}"
     divider
     echo -e "  ${VERDE}Manifest${NC} ~ baixar manifests Steam"
     echo ""
@@ -656,19 +688,21 @@ show_game_menu() {
         clear
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] "
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // STEAM_CLI ${AGL}${NC}"
-        section_divider "$n"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam_cli ${AGL}${NC}"
+        box_top
+        box_mid "$n"
         if [[ $hn == true ]]; then
-            echo -e "  [1]  Jogar (Nativo)"
+            box_row "  [1]  Jogar (Nativo)" "  [${VERDE}1${NC}]  Jogar (Nativo)"
         elif [[ $hp == true ]]; then
-            echo -e "  [1]  Jogar (${pl})"
+            box_row "  [1]  Jogar (${pl})" "  [${VERDE}1${NC}]  Jogar (${pl})"
         else
-            echo -e "  [!]  Jogar (Proton nao configurado)"
+            box_row "  [!]  Jogar (Proton nao configurado)" "  [${VERMELHO}!${NC}]  Jogar (Proton nao configurado)"
         fi
-        echo -e "  [2]  Parametros"
-        echo -e "  [${VERMELHO}3${NC}]  Excluir"
-        section_divider "Sair"
-        echo -e "  [0]  Voltar"
+        box_row "  [2]  Parametros" "  [${AMARELO}2${NC}]  Parametros"
+        box_row "  [3]  Excluir" "  [${VERMELHO}3${NC}]  Excluir"
+        box_mid "Sair"
+        box_row "  [0]  Voltar"
+        box_bottom
         echo ""
         read -p " > " c
 
@@ -720,30 +754,34 @@ show_main_menu() {
         fi
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] "
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // STEAM_CLI ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam_cli ${AGL}${NC}"
 
         if [[ ${#GAMES[@]} -eq 0 ]]; then
-            section_divider "Loja"
-            echo -e "  [${VERDE}B${NC}]  Baixar jogos"
-            section_divider "Sair"
-            echo -e "  [${VERMELHO}0${NC}]  Fechar"
+            box_top
+            box_mid "Loja"
+            box_row "  [B]  Baixar jogos" "  [${VERDE}B${NC}]  Baixar jogos"
+            box_mid "Sair"
+            box_row "  [0]  Fechar" "  [${VERMELHO}0${NC}]  Fechar"
+            box_bottom
             read -p " > " c
             case "$c" in
                 0) $DEBUG && log_debug "OK  fechando steam_cli"; prompt_exit_steam; exit 0 ; true ;;
                 [bB]) $DEBUG && log_debug "OK  acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
             esac
         else
-            section_divider "Loja"
-            echo -e "  [${VERDE}B${NC}]  Baixar jogos"
-            section_divider "Biblioteca"
+            box_top
+            box_mid "Loja"
+            box_row "  [B]  Baixar jogos" "  [${VERDE}B${NC}]  Baixar jogos"
+            box_mid "Biblioteca"
             local i=1
             for game in "${GAMES[@]}"; do
                 IFS='|' read -r a n _ _ <<< "$game"
-                echo -e "  [${i}]  ${n}"
+                box_row "  [${i}]  ${n}"
                 ((i++))
             done
-            section_divider "Sair"
-            echo -e "  [${VERMELHO}0${NC}]  Fechar"
+            box_mid "Sair"
+            box_row "  [0]  Fechar" "  [${VERMELHO}0${NC}]  Fechar"
+            box_bottom
             echo ""
             read -p " > " c
             case "$c" in
@@ -766,7 +804,7 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -d|--debug) DEBUG=true ;;
-            -v|--version) echo -e "  ${AGL} STEAM_CLI v${VERSION}"; exit 0 ;;
+            -v|--version) echo -e "  ${AGL} steam_cli v${VERSION}"; exit 0 ;;
             -h|--help)
                 echo "uso: ./steam.sh [-d] [-v] [-h]"
                 echo "  -d  mostra output completo (nativo + proton)"
@@ -797,7 +835,7 @@ main() {
     $DEBUG && debug_tag="[DEBUG] "
 
     if ! pgrep -x steam >/dev/null 2>&1; then
-        echo -e "  ${BOLINHO} ${debug_tag}STEAM_CLI v${VERSION} ${AGL}"
+        echo -e "  ${BOLINHO} ${debug_tag}steam_cli v${VERSION} ${AGL}"
         if command -v steam &>/dev/null; then
             echo -e "  ${CINZA}[INFO] iniciando steam headless ..${NC}"
             $DEBUG && log_debug "OK  iniciando steam headless"
@@ -809,7 +847,7 @@ main() {
             $DEBUG && log_debug "FALHA steam binary nao encontrado"
         fi
     else
-        echo -e "  ${BOLINHO} ${debug_tag}STEAM_CLI v${VERSION} ${AGL}"
+        echo -e "  ${BOLINHO} ${debug_tag}steam_cli v${VERSION} ${AGL}"
     fi
 
     show_main_menu "$@"
