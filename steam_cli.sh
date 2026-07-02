@@ -273,6 +273,171 @@ save_params() {
 }
 
 # ===============
+# LANCAMENTO NATIVO
+# ===============
+
+launch_native() {
+    local a="$1" n="$2" i="$3" l="$4"
+    local d="$l/steamapps/common/$i"
+    local p
+    p=$(load_params "$a") || true
+
+    local e
+    e=$(find_linux_exe "$i" "$l") || true
+
+    if [[ -n "$e" ]] && [[ ! -x "$e" ]]; then
+        echo -e "  ${AMARELO}[INFO]${NC} sem permissao: $(basename "$e")"
+        read -p "  Adicionar? (s/N): " perm
+        case "${perm,,}" in s|sim) chmod +x "$e" 2>/dev/null || true ;; *) e="" ;; esac
+    fi
+
+    [[ -z "$e" ]] && {
+        echo -e "  ${XIS} ${n} nao tem binario nativo"
+        echo -e "  ${CINZA}[INFO] use -d${NC}"
+        return
+    }
+
+    local b
+    b=$(basename "$e")
+    export SteamAppId="$a" SteamGameId="$a"
+
+    # 1a. Tenta direto
+    (cd "$d"; if $DEBUG; then "./$b" $p; else "./$b" $p &>/dev/null; fi) &
+    GAME_PID=$!; sleep 1
+
+    if kill -0 "$GAME_PID" 2>/dev/null; then
+        echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
+        echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
+        wait "$GAME_PID" 2>/dev/null || true
+        echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"; GAME_PID=""; return
+    fi
+    wait "$GAME_PID" 2>/dev/null || true
+
+    # 1b. Falhou ~ tenta runtime
+    local rt
+    rt=$(find_runtime) || true
+    if [[ -n "$rt" ]]; then
+        (cd "$d"; if $DEBUG; then "$rt" -- "./$b" $p; else "$rt" -- "./$b" $p &>/dev/null; fi) &
+        GAME_PID=$!; sleep 1
+        if kill -0 "$GAME_PID" 2>/dev/null; then
+            echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
+            echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
+            wait "$GAME_PID" 2>/dev/null || true
+            echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"; GAME_PID=""; return
+        fi
+        wait "$GAME_PID" 2>/dev/null || true
+    fi
+
+    # 1c. Tenta binario alternativo
+    local rest=()
+    while IFS= read -r -d '' f; do
+        file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && [[ "$f" != "$e" ]] && rest+=("$f")
+    done < <(find "$d" -maxdepth 1 -type f ! -name '*.*' -print0 2>/dev/null)
+
+    if [[ ${#rest[@]} -gt 0 ]]; then
+        local s="${rest[0]}" sn
+        sn=$(basename "$s")
+        if [[ -n "$rt" ]]; then
+            (cd "$d"; if $DEBUG; then "$rt" -- "./$sn" $p; else "$rt" -- "./$sn" $p &>/dev/null; fi) &
+        else
+            (cd "$d"; if $DEBUG; then "./$sn" $p; else "./$sn" $p &>/dev/null; fi) &
+        fi
+        GAME_PID=$!; sleep 1
+        if kill -0 "$GAME_PID" 2>/dev/null; then
+            echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
+            echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
+            wait "$GAME_PID" 2>/dev/null || true
+            echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"; GAME_PID=""; return
+        fi
+        wait "$GAME_PID" 2>/dev/null || true
+    fi
+
+    echo -e "  ${XIS} ${NEGRITO}${n}${NC} nao iniciou"
+    ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}"
+    GAME_PID=""
+}
+
+# ===============
+# LANCAMENTO PROTON
+# ===============
+
+launch_proton() {
+    local a="$1" n="$2" i="$3" l="$4"
+    local d="$l/steamapps/common/$i"
+    local p
+    p=$(load_params "$a") || true
+    local pl
+    pl=$(get_proton_label "$a")
+
+    local e
+    e=$(find_game_exe "$i" "$l") || true
+
+    [[ -z "$e" ]] && {
+        echo -e "  ${XIS} .exe nao encontrado para ${NEGRITO}${n}${NC}"
+        ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}"
+        return
+    }
+
+    local pr
+    pr=$(get_proton "$a")
+    local cd="$l/steamapps/compatdata/$a"
+
+    [[ -z "$pr" ]] || [[ ! -f "$pr" ]] && {
+        echo -e "  ${XIS} Proton nao encontrado para ${NEGRITO}${n}${NC}"
+        echo -e "  ${CINZA}[INFO] configure ${CONFIG_DIR}/proton.conf${NC}"
+        read -p "  Enter para voltar..."; return
+    }
+
+    mkdir -p "$cd"
+    export STEAM_COMPAT_DATA_PATH="$cd"
+    export STEAM_COMPAT_CLIENT_INSTALL_PATH="$STEAM_HOME"
+    export SteamAppId="$a" SteamGameId="$a"
+
+    echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (${pl})"
+
+    if $DEBUG; then "$pr" run "$e" $p &
+    else "$pr" run "$e" $p &>/dev/null & fi
+    GAME_PID=$!; sleep 1
+
+    if kill -0 "$GAME_PID" 2>/dev/null; then
+        echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
+        wait "$GAME_PID" 2>/dev/null || true
+        echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
+    else
+        wait "$GAME_PID" 2>/dev/null || true
+        echo -e "  ${XIS} ${NEGRITO}${n}${NC} nao iniciou via Proton"
+        ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}"
+    fi
+    GAME_PID=""
+}
+
+# ===============
+# STEAM
+# ===============
+
+prompt_exit_steam() {
+    pgrep -x steam >/dev/null 2>&1 || return
+    read -p "  Sair da steam? (s/N): " resp
+    case "${resp,,}" in
+        s|sim)
+            echo -e "  ${CINZA}[INFO] finalizando steam ..${NC}"
+            $STEAM_CMD -shutdown 2>/dev/null
+            sleep 1; wait 2>/dev/null
+            echo -e "  ${CHECK} steam finalizado"; exit 0 ;;
+    esac
+}
+
+cleanup() {
+    if [[ -n "$GAME_PID" ]] && kill -0 "$GAME_PID" 2>/dev/null; then
+        echo ""
+        echo -e "  ${AMARELO}[WARN]${NC} encerrando jogo (pid: ${GAME_PID})"
+        kill -- "-$GAME_PID" 2>/dev/null || true
+        wait "$GAME_PID" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT INT TERM
+
+# ===============
 # MAIN
 # ===============
 
