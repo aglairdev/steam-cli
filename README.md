@@ -21,6 +21,24 @@ Gerenciador de jogos Steam no terminal, com lançamento nativo e via Proton.
 
 ## Instalação
 
+**Configurar path**
+
+*bash/zsh* (`~/.bashrc` ou `~/.zshrc`):
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+*fish* (`~/.config/fish/config.fish`):
+
+```bash
+set -Ux PATH $HOME/.local/bin $PATH
+```
+
+*Reinicie o terminal*
+
+**Instalação**
+
 ```bash
 curl -fsSL steamcli.pages.dev/install | bash
 ```
