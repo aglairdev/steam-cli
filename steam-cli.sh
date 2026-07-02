@@ -565,6 +565,7 @@ edit_params() {
 
     while true; do
         clear
+        echo ""                                             
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] "
         echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
@@ -574,7 +575,7 @@ edit_params() {
         box_row "  Atual:${c:-(vazio)}" "  Atual:${CINZA}${c:-(vazio)}${NC}"
         box_row ""
         box_row "  [1]  Editar" "  [${AMARELO}1${NC}]  Editar"
-        box_row "  [2]  Limpar" "  [${AMARELO}2${NC}]  Limpar"
+        box_row "  [2]  Limpar" "  [${VERMELHO}2${NC}]  Limpar"
         box_mid "Sair"
         box_row "  [0]  Voltar"
         box_bottom
@@ -641,6 +642,7 @@ check_update() {
 
 baixar_jogos() {
     clear
+    echo ""                                                 
     local debug_tag=""
     $DEBUG && debug_tag="[DEBUG] "
     echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
@@ -686,6 +688,7 @@ show_game_menu() {
 
     while true; do
         clear
+        echo ""                                             
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] "
         echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
@@ -752,6 +755,7 @@ show_main_menu() {
             check_update "$@"
             first=false
         fi
+        echo ""                                            
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] "
         echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
