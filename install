@@ -79,12 +79,23 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
                 exit 1
             fi
         else
-            echo -e "\n  ${RED}${CROSS} Não foi possível criar o link simbólico.${RESET}"
-            echo -e "  O diretório $DIR_BIN não está no seu PATH."
-            echo -e "  Adicione ao seu ~/.bashrc ou ~/.zshrc:"
-            echo -e "${STEAM_BLUE_L}  export PATH=\$PATH:\$HOME/.local/bin${RESET}"
-            echo -e "  Depois execute manualmente:"
-            echo -e "${STEAM_BLUE_L}  sudo ln -sf $DIR_CONF/$BIN_NAME.sh $DIR_BIN/$BIN_NAME${RESET}"
+            echo -e "\n  O diretório $DIR_BIN não está no seu PATH."
+            case "$(basename "$SHELL")" in
+                fish)
+                    echo -e "  Adicione ao ~/.config/fish/config.fish:"
+                    echo -e "${STEAM_BLUE_L}  set -gx PATH \$HOME/.local/bin \$PATH${RESET}"
+                    ;;
+                zsh)
+                    echo -e "  Adicione ao ~/.zshrc:"
+                    echo -e "${STEAM_BLUE_L}  export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+                    ;;
+                *)
+                    echo -e "  Adicione ao ~/.bashrc:"
+                    echo -e "${STEAM_BLUE_L}  export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+                    ;;
+            esac
+            echo -e "  Depois reinicie o terminal e rode novamente:"
+            echo -e "${STEAM_BLUE_L}  curl -fsSL steamcli.pages.dev/install | bash${RESET}"
             exit 1
         fi
     fi
@@ -101,8 +112,21 @@ EOC
 
     if [[ ":$PATH:" != *":$DIR_BIN:"* ]]; then
         echo -e "\n  ${YELLOW}Atenção:${RESET} O diretório $DIR_BIN não está no seu PATH."
-        echo -e "  Adicione esta linha ao seu .bashrc ou .zshrc para usar o comando:"
-        echo -e "${STEAM_BLUE_L}export PATH=\$PATH:\$HOME/.local/bin${RESET}"
+        case "$(basename "$SHELL")" in
+            fish)
+                echo -e "  Adicione ao ~/.config/fish/config.fish:"
+                echo -e "${STEAM_BLUE_L}  set -gx PATH \$HOME/.local/bin \$PATH${RESET}"
+                ;;
+            zsh)
+                echo -e "  Adicione ao ~/.zshrc:"
+                echo -e "${STEAM_BLUE_L}  export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+                ;;
+            *)
+                echo -e "  Adicione ao ~/.bashrc:"
+                echo -e "${STEAM_BLUE_L}  export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+                ;;
+        esac
+        echo -e "  Depois reinicie o terminal."
     else
         echo -e "\n  Tudo pronto. Basta digitar ${STEAM_BLUE_L}steam-cli${RESET} para começar.\n" 
     fi
