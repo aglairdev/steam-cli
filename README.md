@@ -13,16 +13,16 @@ Gerenciador de jogos Steam no terminal, com lançamento nativo e via Proton.
 
 | Menu | Nativo |
 |:---:|:---:|
-| ![menu demo](https://github.com/user-attachments/assets/a7b0ec43-71ff-449c-a7a3-94382bb50075) | ![nativo demo](https://github.com/user-attachments/assets/cd8297a7-fdc6-4070-804c-b27241f5cb6d) |
+| ![menu demo](https://github.com/user-attachments/assets/8b526ca5-fa35-4e38-922d-d5774553089c) | ![nativo demo](https://github.com/user-attachments/assets/4f4dfc66-311a-4c8b-8069-b2041a3929e0) |
 | Proton | Parâmetros |
-| ![proton demo](https://github.com/user-attachments/assets/9f6394fa-8eba-426e-afee-7d413fa5099b) | ![params demo](https://github.com/user-attachments/assets/1e3ec7ed-a9de-4f29-8015-e49dcd1abfbe) |
+| ![proton demo](https://github.com/user-attachments/assets/7640d4aa-51db-4f5a-8bd5-4d983714783e) | ![params demo](https://github.com/user-attachments/assets/38b7e2f0-c89c-489a-aa2f-e8ef7c4236cb) |
 
 </div>
 
 ## Instalação
 
 ```bash
-curl -fsSL steam-cli.pages.dev/install | bash
+curl -fsSL steamcli.pages.dev/install | bash
 ```
 
 > [!CAUTION]
