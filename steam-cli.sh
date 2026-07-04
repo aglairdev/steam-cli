@@ -679,23 +679,21 @@ save_params() {
 # ===============
 
 input_sdl_mapping() {
-    echo ""
-    echo -e "  ${CINZA}cole aqui o mapping string${NC}"
-    echo -e "  ${CINZA}github.com/General-Arcade/sdl2-gamepad-tool/releases${NC}"
-    echo ""
+    echo "" >&2
+    echo -e "  ${CINZA}Cole aqui o valor de mapping string${NC}" >&2
     local novo_map
     while true; do
         read -e -p " > " novo_map
         if [[ -z "$novo_map" ]]; then
-            echo ""
+            echo "" >&2
             return 1
         fi
         if is_valid_mapping "$novo_map"; then
             echo "$novo_map"
             return 0
         fi
-        echo -e "  ${VERMELHO}mapping invalido. tente novamente.${NC}"
-        echo ""
+        echo -e "  ${VERMELHO}mapping invalido. tente novamente.${NC}" >&2
+        echo "" >&2
     done
 }
 
@@ -1170,7 +1168,8 @@ show_game_controller_menu() {
                     $DEBUG && log_debug "OK    suporte nativo marcado (appid $a)" || true
                     echo -e "  ${CHECK} suporte nativo marcado"
                 fi
-                sleep 1 ; true ;;
+                sleep 1
+                continue ;;
             2)
                 $DEBUG && log_debug "OK    iniciando configuracao de mapeamento (appid $a)" || true
                 local novo_map=""
