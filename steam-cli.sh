@@ -56,6 +56,7 @@ ICON_GAMEPAD=$'\uf11b'
 ICON_KEYBOARD=$'\uf11c'
 ICON_LINUX=$'\uebc6'
 ICON_WINDOWS=$'\ue8e5'
+ICON_TIME=$'\uf017'
 
 DEBUG_BUFFER=()
 
@@ -133,6 +134,38 @@ pad_to_width() {
     local diff=$((target - w))
     (( diff < 0 )) && diff=0
     printf '%s%*s' "$s" "$diff" ""
+}
+
+# ===============
+# TEMPO DE JOGO
+# ===============
+
+format_playtime() {
+    local mins="$1"
+    if [[ -z "$mins" || "$mins" -eq 0 ]]; then
+        echo "0h"
+        return
+    fi
+    local h=$((mins / 60))
+    local m=$((mins % 60))
+    if (( h > 0 )); then
+        echo "${h}h${m}m"
+    else
+        echo "${m}m"
+    fi
+}
+
+get_playtime() {
+    local appid="$1"
+    local vdf
+    vdf=$(find "$HOME/.steam/steam/userdata/" -name "localconfig.vdf" 2>/dev/null | head -1)
+    [[ -f "$vdf" ]] || { echo "0"; return; }
+    awk -v id="$appid" '
+        /^[[:space:]]*"[0-9]+"[[:space:]]*$/ { current_app = $0; gsub(/[^0-9]/, "", current_app) }
+        current_app == id && /[[:space:]]*"Playtime"[[:space:]]*"[0-9]+"/ {
+            gsub(/.*"Playtime"[[:space:]]*"/, ""); gsub(/".*/, ""); print; exit
+        }
+    ' "$vdf" || echo "0"
 }
 
 # ===============
@@ -274,11 +307,12 @@ scan_games() {
         [[ -d "$d" ]] || continue
         while IFS= read -r m; do
             [[ -f "$m" ]] || continue
-            local a n i lp ts platform
+            local a n i lp ts platform pt
             a=$(grep '"appid"' "$m" | sed 's/.*"appid"[[:space:]]*"\(.*\)"/\1/') || true
             n=$(grep '"name"' "$m" | sed 's/.*"name"[[:space:]]*"\(.*\)"/\1/') || true
             i=$(grep '"installdir"' "$m" | sed 's/.*"installdir"[[:space:]]*"\(.*\)"/\1/') || true
             lp=$(grep '"LastPlayed"' "$m" | sed 's/.*"LastPlayed"[[:space:]]*"\(.*\)"/\1/') || true
+            pt=$(grep '"Playtime"' "$m" | sed 's/.*"Playtime"[[:space:]]*"\(.*\)"/\1/') || true
             ts=${lp:-$(stat --format='%Y' "$m" 2>/dev/null || echo 0)}
             platform="windows"
             local gdir="$lib/steamapps/common/$i"
@@ -289,7 +323,7 @@ scan_games() {
                     fi
                 done < <(find "$gdir" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
             fi
-            temp+=("$ts|$a|$n|$i|$lib|$platform")
+            temp+=("$ts|$a|$n|$i|$lib|$platform|${pt:-0}")
         done < <(find "$d" -maxdepth 1 -name 'appmanifest_*.acf' \
             -exec stat --format='%Y %n' {} \; 2>/dev/null | sort -n | cut -d' ' -f2-)
     done
@@ -309,7 +343,7 @@ scan_games() {
 filter_games() {
     local filtered=()
     for game in "${GAMES[@]}"; do
-        IFS='|' read -r a n _ _ _ _ <<< "$game"
+        IFS='|' read -r a n _ _ _ _ _ <<< "$game"
         local s=0
         for t in "${TOOLS_APPIDS[@]}"; do
             [[ "$a" == "$t" ]] && { s=1; break; }
@@ -1049,7 +1083,7 @@ baixar_jogos() {
 
 show_game_menu() {
     local game="$1"
-    IFS='|' read -r a n i l _ _ <<< "$game"
+    IFS='|' read -r a n i l _ _ _ <<< "$game"
     $DEBUG && log_debug "OK    menu: $n (appid $a)" || true
 
     local linux_exe="" win_exe="" hn=false hp=false
@@ -1062,6 +1096,8 @@ show_game_menu() {
     fi
 
     while true; do
+        local pt
+        pt=$(get_playtime "$a")
         clear
         echo ""
         local debug_tag=""
@@ -1069,8 +1105,10 @@ show_game_menu() {
         echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
         box_top
         box_mid "$n"
+        local pt_fmt
+        pt_fmt=$(format_playtime "$pt")
         if [[ $hn == true ]] || [[ $hp == true ]]; then
-            box_row "  [1]  Jogar" "  [${VERDE}1${NC}]  Jogar"
+            box_row "  [1]  Jogar ${ICON_TIME} ${pt_fmt}" "  [${VERDE}1${NC}]  Jogar ${ICON_TIME} ${pt_fmt}"
         else
             box_row "  [!]  Jogar (Proton não configurado)" "  [${VERMELHO}!${NC}]  Jogar (Proton não configurado)"
         fi
@@ -1109,7 +1147,7 @@ show_game_menu() {
                     echo -e "  ${CHECK} ${n} removido"
                     local ng=()
                     for g in "${GAMES[@]}"; do
-                        IFS='|' read -r ga _ _ _ <<< "$g"
+                        IFS='|' read -r ga _ _ _ _ <<< "$g"
                         [[ "$ga" != "$a" ]] && ng+=("$g")
                     done
                     GAMES=("${ng[@]}"); sleep 1; return ; true ;;
@@ -1378,7 +1416,7 @@ show_main_menu() {
             box_mid "Biblioteca"
             local idx=1 a n i l p native mapping icon plat display_n padded
             for game in "${GAMES[@]}"; do
-                IFS='|' read -r a n i l _ p <<< "$game"
+                IFS='|' read -r a n i l p _ <<< "$game"
                 IFS='|' read -r native mapping <<< "$(controller_status "$a")"
                 if [[ "$native" == "yes" ]] || { [[ -n "$mapping" ]] && is_valid_mapping "$mapping"; }; then
                     icon="$ICON_GAMEPAD"
