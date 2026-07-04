@@ -57,12 +57,23 @@ ICON_KEYBOARD=$'\uf11c'
 ICON_LINUX=$'\uf17c'
 ICON_WINDOWS=$'\ue8e5'
 
+DEBUG_BUFFER=()
+
 log_debug() {
     local msg="$1"
     local ts
     ts=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "  ${CINZA}[DEBUG] ${msg}${NC}"
+    DEBUG_BUFFER+=("$msg")
     echo "[$ts] $msg" >> "$DEBUG_LOG"
+}
+
+debug_flush() {
+    $DEBUG || { DEBUG_BUFFER=(); return 0; }
+    local m
+    for m in "${DEBUG_BUFFER[@]}"; do
+        echo -e "  ${CINZA}[DEBUG] ${m}${NC}"
+    done
+    DEBUG_BUFFER=()
 }
 
 divider() {
@@ -221,6 +232,7 @@ detect_steam_installation() {
     fi
 
     $DEBUG && log_debug "FALHA steam nao encontrado (nativo / flatpak / snap)" || true
+    debug_flush
     echo -e "  ${XIS} Steam nao encontrado (nativo / flatpak / snap)"
     exit 1
 }
@@ -245,6 +257,7 @@ detect_libraries() {
         return 0
     done
     $DEBUG && log_debug "FALHA libraryfolders.vdf nao encontrado" || true
+    debug_flush
     echo -e "  ${XIS} libraryfolders.vdf nao encontrado" >&2
     exit 1
 }
@@ -937,6 +950,7 @@ edit_params() {
         box_mid "Sair"
         box_row "  [0]  Voltar"
         box_bottom
+        debug_flush
         echo ""
         read -p " > " opt
         case "$opt" in
@@ -1063,6 +1077,7 @@ show_game_menu() {
         box_mid "Sair"
         box_row "  [0]  Voltar"
         box_bottom
+        debug_flush
         echo ""
         read -p " > " c
 
@@ -1141,6 +1156,7 @@ show_game_controller_menu() {
         box_mid "Sair"
         box_row "  [0]  Voltar"
         box_bottom
+        debug_flush
         echo ""
         read -p " > " c
         case "$c" in
@@ -1230,6 +1246,7 @@ show_controller_device_menu() {
         box_mid "Sair"
         box_row "  [0]  Voltar"
         box_bottom
+        debug_flush
         echo ""
         read -p " > " c
 
@@ -1302,6 +1319,7 @@ show_controllers_menu() {
         box_mid "Sair"
         box_row "  [0]  Voltar"
         box_bottom
+        debug_flush
         echo ""
         read -p " > " c
 
@@ -1342,6 +1360,7 @@ show_main_menu() {
             box_mid "Sair"
             box_row "  [0]  Fechar" "  [${VERMELHO}0${NC}]  Fechar"
             box_bottom
+            debug_flush
             read -p " > " c
             case "$c" in
                 0) $DEBUG && log_debug "OK    fechando steam-cli"; prompt_exit_steam; exit 0 ; true ;;
@@ -1373,6 +1392,7 @@ show_main_menu() {
             box_mid "Sair"
             box_row "  [0]  Fechar" "  [${VERMELHO}0${NC}]  Fechar"
             box_bottom
+            debug_flush
             echo ""
             read -p " > " c
             case "$c" in
