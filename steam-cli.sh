@@ -660,7 +660,7 @@ gamepad_tool_run_and_capture() {
 }
 
 # ===============
-# PARAMS
+# PARÂMETROS
 # ===============
 
 load_params() {
@@ -672,6 +672,51 @@ save_params() {
     local f="$CONFIG_DIR/params/$1"
     if [[ -n "$2" ]]; then echo "$2" > "$f"
     elif [[ -f "$f" ]]; then rm "$f"; fi
+}
+
+edit_params() {
+    local a="$1" n="$2"
+    local c=""
+    c=$(load_params "$a" 2>/dev/null) || true
+
+    while true; do
+        clear
+        echo ""
+        local debug_tag=""
+        $DEBUG && debug_tag="[DEBUG] " || true
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        box_top
+        box_mid "Parâmetros"
+        box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
+        box_row "  Atual:${c:-(vazio)}" "  Atual:${CINZA}${c:-(vazio)}${NC}"
+        box_row ""
+        box_row "  [1]  Editar" "  [${AMARELO}1${NC}]  Editar"
+        box_row "  [2]  Limpar" "  [${VERMELHO}2${NC}]  Limpar"
+        box_mid "Sair"
+        box_row "  [0]  Voltar"
+        box_bottom
+        debug_flush
+        echo ""
+        read -p " > " opt
+        case "$opt" in
+            1)
+                echo ""
+                read -e -p " > " novo
+                if [[ -n "$novo" ]]; then
+                    save_params "$a" "$novo"
+                    c="$novo"
+                    $DEBUG && log_debug "OK    param salvo: $novo (appid $a)" || true
+                    echo -e "  ${CHECK} parâmetro salvo"
+                fi ; true ;;
+            2)
+                save_params "$a" ""
+                c=""
+                $DEBUG && log_debug "OK    param limpo (appid $a)" || true
+                echo -e "  ${CHECK} parâmetro limpo" ; true ;;
+            0) return ;;
+            *) invalid_option ;;
+        esac
+    done
 }
 
 # ===============
@@ -922,55 +967,6 @@ cleanup() {
     fi
 }
 trap cleanup EXIT INT TERM
-
-# ===============
-# PARÂMETROS
-# ===============
-
-edit_params() {
-    local a="$1" n="$2"
-    local c=""
-    c=$(load_params "$a" 2>/dev/null) || true
-
-    while true; do
-        clear
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
-        box_top
-        box_mid "Parâmetros"
-        box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
-        box_row "  Atual:${c:-(vazio)}" "  Atual:${CINZA}${c:-(vazio)}${NC}"
-        box_row ""
-        box_row "  [1]  Editar" "  [${AMARELO}1${NC}]  Editar"
-        box_row "  [2]  Limpar" "  [${VERMELHO}2${NC}]  Limpar"
-        box_mid "Sair"
-        box_row "  [0]  Voltar"
-        box_bottom
-        debug_flush
-        echo ""
-        read -p " > " opt
-        case "$opt" in
-            1)
-                echo ""
-                read -e -p " > " novo
-                if [[ -n "$novo" ]]; then
-                    save_params "$a" "$novo"
-                    c="$novo"
-                    $DEBUG && log_debug "OK    param salvo: $novo (appid $a)" || true
-                    echo -e "  ${CHECK} parâmetro salvo"
-                fi ; true ;;
-            2)
-                save_params "$a" ""
-                c=""
-                $DEBUG && log_debug "OK    param limpo (appid $a)" || true
-                echo -e "  ${CHECK} parâmetro limpo" ; true ;;
-            0) return ;;
-            *) invalid_option ;;
-        esac
-    done
-}
 
 # ===============
 # UPDATE
