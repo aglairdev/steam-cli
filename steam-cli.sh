@@ -2,11 +2,11 @@
 #
 # steam-cli ~ biblioteca de jogos steam via terminal
 # © 2026 steam-cli ~ AGL ~ github.com/aglairdev
-# Licenca: MIT
+# Licença: MIT
 #
 # uso:  ./steam-cli.sh
 #       ./steam-cli.sh -d     #debug
-#       ./steam-cli.sh -v     #versao
+#       ./steam-cli.sh -v     #versão
 #       ./steam-cli.sh -h     #ajuda
 #
 
@@ -81,12 +81,12 @@ divider() {
 }
 
 invalid_option() {
-    echo -e "  ${VERMELHO}Comando nao disponivel${NC}"
+    echo -e "  ${VERMELHO}Comando não disponível${NC}"
     read -n1 -s -r
 }
 
 # ===============
-# LARGURA DE EXIBICAO
+# LARGURA DE EXIBIÇÃO
 # ===============
 
 display_width() {
@@ -191,7 +191,7 @@ EOC
 }
 
 # ===============
-# DETECCAO STEAM
+# DETECÇÃO STEAM
 # ===============
 
 detect_steam_installation() {
@@ -231,14 +231,14 @@ detect_steam_installation() {
         fi
     fi
 
-    $DEBUG && log_debug "FALHA steam nao encontrado (nativo / flatpak / snap)" || true
+    $DEBUG && log_debug "FALHA steam não encontrado (nativo / flatpak / snap)" || true
     debug_flush
-    echo -e "  ${XIS} Steam nao encontrado (nativo / flatpak / snap)"
+    echo -e "  ${XIS} Steam não encontrado (nativo / flatpak / snap)"
     exit 1
 }
 
 # ===============
-# DETECCAO BIBLIOTECAS
+# DETECÇÃO BIBLIOTECAS
 # ===============
 
 detect_libraries() {
@@ -256,9 +256,9 @@ detect_libraries() {
         done < "$vdf"
         return 0
     done
-    $DEBUG && log_debug "FALHA libraryfolders.vdf nao encontrado" || true
+    $DEBUG && log_debug "FALHA libraryfolders.vdf não encontrado" || true
     debug_flush
-    echo -e "  ${XIS} libraryfolders.vdf nao encontrado" >&2
+    echo -e "  ${XIS} libraryfolders.vdf não encontrado" >&2
     exit 1
 }
 
@@ -315,17 +315,17 @@ filter_games() {
         filtered+=("$game")
     done
     GAMES=("${filtered[@]}")
-    $DEBUG && log_debug "FILTER ${#GAMES[@]} jogos apos filtro" || true
+    $DEBUG && log_debug "FILTER ${#GAMES[@]} jogos após filtro" || true
 }
 
 # ===============
-# DETECCAO EXECUTAVEIS
+# DETECÇÃO EXECUTÁVEIS
 # ===============
 
 find_game_exe() {
     local i="$1" l="$2"
     local d="$l/steamapps/common/$i"
-    [[ -d "$d" ]] || { $DEBUG && log_debug "EXE   diretorio nao encontrado: $d"; return 1; }
+    [[ -d "$d" ]] || { $DEBUG && log_debug "EXE   diretório não encontrado: $d"; return 1; }
     local exes=()
     while IFS= read -r -d '' e; do
         local b=$(basename "$e"); b="${b,,}"
@@ -334,7 +334,7 @@ find_game_exe() {
         esac
         exes+=("$e")
     done < <(find "$d" -maxdepth 2 -name '*.exe' -type f -print0 2>/dev/null)
-    $DEBUG && log_debug "EXE   ${#exes[@]} executaveis .exe encontrados em $i" || true
+    $DEBUG && log_debug "EXE   ${#exes[@]} executáveis .exe encontrados em $i" || true
     case ${#exes[@]} in
         0) $DEBUG && log_debug "FALHA nenhum .exe encontrado para $i"; return 1 ;;
         1) $DEBUG && log_debug "OK    exe selecionado: ${exes[0]}"; echo "${exes[0]}" ;;
@@ -347,7 +347,7 @@ find_game_exe() {
                     echo "$e"; return 0
                 fi
             done
-            $DEBUG && log_debug "OK    exe padrao: ${exes[0]}" || true
+            $DEBUG && log_debug "OK    exe padrão: ${exes[0]}" || true
             echo "${exes[0]}" ;;
     esac
 }
@@ -355,7 +355,7 @@ find_game_exe() {
 find_linux_exe() {
     local i="$1" l="$2"
     local d="$l/steamapps/common/$i"
-    [[ -d "$d" ]] || { $DEBUG && log_debug "LIN   diretorio nao encontrado: $d"; return 1; }
+    [[ -d "$d" ]] || { $DEBUG && log_debug "LIN   diretório não encontrado: $d"; return 1; }
     local il="${i,,}" elfs=()
     while IFS= read -r -d '' f; do
         file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$f")
@@ -396,7 +396,7 @@ find_linux_exe() {
             echo "$d/$s"; return 0
         fi
     done
-    $DEBUG && log_debug "FALHA nenhum executavel linux para $i" || true
+    $DEBUG && log_debug "FALHA nenhum executável linux para $i" || true
     return 1
 }
 
@@ -424,7 +424,7 @@ find_runtime() {
             fi
         done
     done
-    $DEBUG && log_debug "FALHA runtime nao encontrado" || true
+    $DEBUG && log_debug "FALHA runtime não encontrado" || true
     return 1
 }
 
@@ -435,7 +435,7 @@ find_runtime() {
 get_proton() {
     local a="$1" v="PROTON_${a}"
     if [[ -n "${!v:-}" ]]; then
-        $DEBUG && log_debug "OK    proton por variavel: ${!v}" || true
+        $DEBUG && log_debug "OK    proton por variável: ${!v}" || true
         echo "${!v}"; return
     fi
     if [[ -n "${PROTON_DEFAULT:-}" ]] && [[ -f "$PROTON_DEFAULT" ]]; then
@@ -452,7 +452,7 @@ get_proton() {
             fi
         done < <(find "$pd" -maxdepth 3 -name 'proton' -type f -print0 2>/dev/null)
     done
-    $DEBUG && log_debug "FALHA proton nao encontrado para appid $a" || true
+    $DEBUG && log_debug "FALHA proton não encontrado para appid $a" || true
     echo ""
 }
 
@@ -513,7 +513,7 @@ apply_controller_mapping() {
         export SDL_GAMECONTROLLERCONFIG="$mapping"
         $DEBUG && log_debug "OK    SDL_GAMECONTROLLERCONFIG aplicado (appid $a)" || true
     elif [[ -n "$mapping" ]]; then
-        $DEBUG && log_debug "FALHA mapping invalido, ignorado (appid $a): ${mapping:0:40}..." || true
+        $DEBUG && log_debug "FALHA mapping inválido, ignorado (appid $a): ${mapping:0:40}..." || true
     fi
 }
 
@@ -537,7 +537,7 @@ detect_controllers() {
 }
 
 # ===============
-# VALIDACAO MAPPING
+# VALIDAÇÃO MAPPING
 # ===============
 
 is_valid_mapping() {
@@ -545,9 +545,9 @@ is_valid_mapping() {
     [[ -z "$m" ]] && return 1
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
-        [[ "$line" =~ ^[0-9a-fA-F]{8,40}, ]] || { $DEBUG && log_debug "FALHA mapping invalido (VID:PID): ${line:0:30}..."; return 1; }
-        [[ "$line" =~ platform: ]] || { $DEBUG && log_debug "FALHA mapping invalido (sem platform:): ${line:0:30}..."; return 1; }
-        [[ "$line" =~ ,[a-z]:b[0-9] ]] || [[ "$line" =~ ,[a-z]:h[0-9] ]] || { $DEBUG && log_debug "FALHA mapping invalido (sem botoes): ${line:0:30}..."; return 1; }
+        [[ "$line" =~ ^[0-9a-fA-F]{8,40}, ]] || { $DEBUG && log_debug "FALHA mapping inválido (VID:PID): ${line:0:30}..."; return 1; }
+        [[ "$line" =~ platform: ]] || { $DEBUG && log_debug "FALHA mapping inválido (sem platform:): ${line:0:30}..."; return 1; }
+        [[ "$line" =~ ,[a-z]:b[0-9] ]] || [[ "$line" =~ ,[a-z]:h[0-9] ]] || { $DEBUG && log_debug "FALHA mapping inválido (sem botões): ${line:0:30}..."; return 1; }
     done <<< "$m"
     $DEBUG && log_debug "OK    mapping validado com sucesso" || true
     return 0
@@ -586,7 +586,7 @@ gamepad_tool_check_update() {
 
 gamepad_tool_download() {
     echo ""
-    echo -e "  ${CINZA}[INFO] consultando ultima versao ..${NC}"
+    echo -e "  ${CINZA}[INFO] consultando última versão ..${NC}"
     local json url rv
     json=$(gamepad_tool_latest_release_json)
     if [[ -z "$json" ]]; then
@@ -597,8 +597,8 @@ gamepad_tool_download() {
     rv=$(echo "$json" | grep -m1 '"tag_name"' | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\(.*\)".*/\1/')
     url=$(echo "$json" | grep -o '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]*linux-x86_64\.tar\.gz"' | head -1 | sed 's/.*"\(https:[^"]*\)"/\1/')
     if [[ -z "$url" ]]; then
-        echo -e "  ${XIS} asset linux-x86_64 nao encontrado na release"
-        $DEBUG && log_debug "FALHA gamepad-tool: asset nao encontrado" || true
+        echo -e "  ${XIS} asset linux-x86_64 não encontrado na release"
+        $DEBUG && log_debug "FALHA gamepad-tool: asset não encontrado" || true
         return 1
     fi
 
@@ -617,7 +617,7 @@ gamepad_tool_download() {
     tmpdir=$(mktemp -d)
     if ! tar -xzf "$tmp" -C "$tmpdir" 2>/dev/null; then
         echo -e "  ${XIS} falha ao descompactar"
-        $DEBUG && log_debug "FALHA gamepad-tool: extracao" || true
+        $DEBUG && log_debug "FALHA gamepad-tool: extração" || true
         rm -f "$tmp"; rm -rf "$tmpdir"
         return 1
     fi
@@ -626,8 +626,8 @@ gamepad_tool_download() {
     local bin
     bin=$(find "$tmpdir" -maxdepth 2 -type f -name 'gamepad-tool' -print -quit 2>/dev/null)
     if [[ -z "$bin" ]]; then
-        echo -e "  ${XIS} binario gamepad-tool nao encontrado no pacote"
-        $DEBUG && log_debug "FALHA gamepad-tool: binario ausente no tar.gz" || true
+        echo -e "  ${XIS} binário gamepad-tool não encontrado no pacote"
+        $DEBUG && log_debug "FALHA gamepad-tool: binário ausente no tar.gz" || true
         rm -rf "$tmpdir"
         return 1
     fi
@@ -692,13 +692,13 @@ input_sdl_mapping() {
             echo "$novo_map"
             return 0
         fi
-        echo -e "  ${VERMELHO}mapping invalido. tente novamente.${NC}" >&2
+        echo -e "  ${VERMELHO}mapping inválido. tente novamente.${NC}" >&2
         echo "" >&2
     done
 }
 
 # ===============
-# LANCAMENTO NATIVO
+# LANÇAMENTO NATIVO
 # ===============
 
 launch_native() {
@@ -731,11 +731,11 @@ launch_native() {
         find "$libdir" -type f ! -perm -o+w -exec chmod +wx {} \; 2>/dev/null || true
         altered=true
     fi
-    $altered && echo -e "  ${CHECK} permissoes corrigidas"
+    $altered && echo -e "  ${CHECK} permissões corrigidas"
 
     [[ -z "$e" ]] && {
-        echo -e "  ${XIS} ${n} nao tem binario nativo"
-        $DEBUG && log_debug "FALHA nenhum binario nativo para $n" || true
+        echo -e "  ${XIS} ${n} não tem binário nativo"
+        $DEBUG && log_debug "FALHA nenhum binário nativo para $n" || true
         ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}" || true
         return
     }
@@ -745,7 +745,7 @@ launch_native() {
     export SteamAppId="$a" SteamGameId="$a"
 
     if $DEBUG; then
-        log_debug "OK    binario: $e"
+        log_debug "OK    binário: $e"
         if [[ -z "$p" ]]; then
             log_debug "OK    params: nenhum"
         else
@@ -796,7 +796,7 @@ launch_native() {
     if [[ ${#rest[@]} -gt 0 ]]; then
         local s="${rest[0]}" sn
         sn=$(basename "$s")
-        $DEBUG && log_debug "LAUNCH tentativa alternativo: $sn" || true
+        $DEBUG && log_debug "LAUNCH tentativa alternativa: $sn" || true
         if [[ -n "$rt" ]]; then
             (cd "$d"; if $DEBUG; then "$rt" -- "./$sn" $p; else "$rt" -- "./$sn" $p &>/dev/null; fi) &
         else
@@ -806,24 +806,24 @@ launch_native() {
         if kill -0 "$GAME_PID" 2>/dev/null; then
             echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
             echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
-            $DEBUG && log_debug "OK    iniciado via alternativo (pid: $GAME_PID)" || true
+            $DEBUG && log_debug "OK    iniciado via alternativa (pid: $GAME_PID)" || true
             wait "$GAME_PID" 2>/dev/null || true
             echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
-            $DEBUG && log_debug "OK    fechado via alternativo (exit: $?)" || true
+            $DEBUG && log_debug "OK    fechado via alternativa (exit: $?)" || true
             GAME_PID=""; return
         fi
         wait "$GAME_PID" 2>/dev/null || true
-        $DEBUG && log_debug "FALHA tentativa alternativo falhou" || true
+        $DEBUG && log_debug "FALHA tentativa alternativa falhou" || true
     fi
 
-    echo -e "  ${XIS} ${NEGRITO}${n}${NC} nao iniciou"
-    $DEBUG && log_debug "FALHA $n nao iniciou (todas as tentativas falharam)" || true
+    echo -e "  ${XIS} ${NEGRITO}${n}${NC} não iniciou"
+    $DEBUG && log_debug "FALHA $n não iniciou (todas as tentativas falharam)" || true
     ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}" || true
     GAME_PID=""
 }
 
 # ===============
-# LANCAMENTO PROTON
+# LANÇAMENTO PROTON
 # ===============
 
 launch_proton() {
@@ -839,8 +839,8 @@ launch_proton() {
     $DEBUG && log_debug "LAUNCH tentativa proton: $n (appid $a)" || true
 
     [[ -z "$e" ]] && {
-        echo -e "  ${XIS} .exe nao encontrado para ${NEGRITO}${n}${NC}"
-        $DEBUG && log_debug "FALHA .exe nao encontrado para ${n}" || true
+        echo -e "  ${XIS} .exe não encontrado para ${NEGRITO}${n}${NC}"
+        $DEBUG && log_debug "FALHA .exe não encontrado para ${n}" || true
         ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}" || true
         return
     }
@@ -849,9 +849,9 @@ launch_proton() {
     pr=$(get_proton "$a")
 
     [[ -z "$pr" ]] || [[ ! -f "$pr" ]] && {
-        echo -e "  ${XIS} Proton nao encontrado para ${NEGRITO}${n}${NC}"
+        echo -e "  ${XIS} Proton não encontrado para ${NEGRITO}${n}${NC}"
         echo -e "  ${CINZA}[INFO] configure ${CONFIG_DIR}/proton.conf${NC}"
-        $DEBUG && log_debug "FALHA Proton nao encontrado para ${a}" || true
+        $DEBUG && log_debug "FALHA Proton não encontrado para ${a}" || true
         read -p "  Enter para voltar..."; return
     }
 
@@ -884,8 +884,8 @@ launch_proton() {
         $DEBUG && log_debug "OK    fechado via proton (exit: $?)" || true
     else
         wait "$GAME_PID" 2>/dev/null || true
-        echo -e "  ${XIS} ${NEGRITO}${n}${NC} nao iniciou via Proton"
-        $DEBUG && log_debug "FALHA ${n} nao iniciou via Proton" || true
+        echo -e "  ${XIS} ${NEGRITO}${n}${NC} não iniciou via Proton"
+        $DEBUG && log_debug "FALHA ${n} não iniciou via Proton" || true
         ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}" || true
     fi
     GAME_PID=""
@@ -924,7 +924,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ===============
-# PARAMETROS
+# PARÂMETROS
 # ===============
 
 edit_params() {
@@ -939,7 +939,7 @@ edit_params() {
         $DEBUG && debug_tag="[DEBUG] " || true
         echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
         box_top
-        box_mid "Parametros"
+        box_mid "Parâmetros"
         box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
         box_row "  Atual:${c:-(vazio)}" "  Atual:${CINZA}${c:-(vazio)}${NC}"
         box_row ""
@@ -959,13 +959,13 @@ edit_params() {
                     save_params "$a" "$novo"
                     c="$novo"
                     $DEBUG && log_debug "OK    param salvo: $novo (appid $a)" || true
-                    echo -e "  ${CHECK} parametro salvo"
+                    echo -e "  ${CHECK} parâmetro salvo"
                 fi ; true ;;
             2)
                 save_params "$a" ""
                 c=""
                 $DEBUG && log_debug "OK    param limpo (appid $a)" || true
-                echo -e "  ${CHECK} parametro limpo" ; true ;;
+                echo -e "  ${CHECK} parâmetro limpo" ; true ;;
             0) return ;;
             *) invalid_option ;;
         esac
@@ -983,7 +983,7 @@ check_update() {
     [[ -z "$rv" ]] || [[ "$rv" == "$VERSION" ]] && return
 
     echo ""
-    echo -e "  ${AGL} nova versao: ${VERDE}v${rv}${NC} (atual: ${VERMELHO}v${VERSION}${NC})"
+    echo -e "  ${AGL} nova versão: ${VERDE}v${rv}${NC} (atual: ${VERMELHO}v${VERSION}${NC})"
     divider
     sleep 1
     read -p "  Atualizar? (s/N): " resp
@@ -1031,8 +1031,8 @@ baixar_jogos() {
         filter_games
         echo -e "  ${CHECK} lista atualizada"
     else
-        $DEBUG && log_debug "FALHA Manifest nao instalado" || true
-        echo -e "  ${AMARELO}[INFO]${NC} Manifest nao encontrado"
+        $DEBUG && log_debug "FALHA Manifest não instalado" || true
+        echo -e "  ${AMARELO}[INFO]${NC} Manifest não encontrado"
         echo -e "  ${CINZA}github.com/aglairdev/Manifest${NC}"
     fi
     read -p "  Enter para voltar"
@@ -1067,10 +1067,10 @@ show_game_menu() {
         if [[ $hn == true ]] || [[ $hp == true ]]; then
             box_row "  [1]  Jogar" "  [${VERDE}1${NC}]  Jogar"
         else
-            box_row "  [!]  Jogar (Proton nao configurado)" "  [${VERMELHO}!${NC}]  Jogar (Proton nao configurado)"
+            box_row "  [!]  Jogar (Proton não configurado)" "  [${VERMELHO}!${NC}]  Jogar (Proton não configurado)"
         fi
         box_row "  [2]  Mapear controle" "  [${AMARELO}2${NC}]  Mapear controle"
-        box_row "  [3]  Parametros" "  [${AMARELO}3${NC}]  Parametros"
+        box_row "  [3]  Parâmetros" "  [${AMARELO}3${NC}]  Parâmetros"
         box_row "  [4]  Excluir" "  [${VERMELHO}4${NC}]  Excluir"
         box_mid "Sair"
         box_row "  [0]  Voltar"
@@ -1171,7 +1171,7 @@ show_game_controller_menu() {
                 sleep 1
                 continue ;;
             2)
-                $DEBUG && log_debug "OK    iniciando configuracao de mapeamento (appid $a)" || true
+                $DEBUG && log_debug "OK    iniciando configuração de mapeamento (appid $a)" || true
                 local novo_map=""
                 if gamepad_tool_installed; then
                     novo_map=$(gamepad_tool_run_and_capture) || true
@@ -1187,7 +1187,7 @@ show_game_controller_menu() {
                 sleep 1 ; true ;;
             3)
                 reset_controller_override "$a" || true
-                echo -e "  ${CHECK} configuracoes resetadas"
+                echo -e "  ${CHECK} configurações resetadas"
                 sleep 1 ; true ;;
             0) return ;;
             *) invalid_option ;;
@@ -1236,7 +1236,7 @@ show_controller_device_menu() {
             box_row "  [${opt_configure}]  Baixar gamepad-tool" "  [${AMARELO}${opt_configure}${NC}]  Baixar gamepad-tool"
         fi
         if (( opt_update > 0 )); then
-            box_row "  [${opt_update}]  Atualizacao disponivel (v${GAMEPAD_TOOL_UPDATE_AVAILABLE})" "  [${AMARELO}${opt_update}${NC}]  Atualizacao disponivel (v${GAMEPAD_TOOL_UPDATE_AVAILABLE})"
+            box_row "  [${opt_update}]  Atualização disponível (v${GAMEPAD_TOOL_UPDATE_AVAILABLE})" "  [${AMARELO}${opt_update}${NC}]  Atualização disponível (v${GAMEPAD_TOOL_UPDATE_AVAILABLE})"
         fi
         box_row "  [${opt_reset}]  Resetar" "  [${VERMELHO}${opt_reset}${NC}]  Resetar"
         if (( opt_remove > 0 )); then
@@ -1422,7 +1422,7 @@ main() {
             -h|--help)
                 echo "uso: ./steam-cli.sh [-d] [-v] [-h]"
                 echo "  -d  mostra output completo (nativo + proton)"
-                echo "  -v  mostra versao"
+                echo "  -v  mostra versão"
                 echo "  -h  mostra ajuda"
                 exit 0 ;;
         esac; shift
@@ -1435,7 +1435,7 @@ main() {
         if [[ ! -f "$DEBUG_LOG" ]]; then
             echo "--" > "$DEBUG_LOG"
         fi
-        echo "[$ts] === INICIO SESSAO DEBUG ===" >> "$DEBUG_LOG"
+        echo "[$ts] === INÍCIO SESSAO ===" >> "$DEBUG_LOG"
         echo "[$ts] steam-cli v$VERSION" >> "$DEBUG_LOG"
     fi
 
@@ -1457,8 +1457,8 @@ main() {
             else $STEAM_CMD -no-browser -silent &>/dev/null & fi
             sleep 2
         else
-            echo -e "  ${AMARELO}[INFO]${NC} Steam nao encontrado"
-            $DEBUG && log_debug "FALHA steam binary nao encontrado" || true
+            echo -e "  ${AMARELO}[INFO]${NC} Steam não encontrado"
+            $DEBUG && log_debug "FALHA steam binário não encontrado" || true
         fi
     else
         echo -e "  ${BOLINHO} ${debug_tag}steam-cli v${VERSION} ${AGL}"
