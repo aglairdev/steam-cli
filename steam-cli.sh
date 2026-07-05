@@ -274,13 +274,22 @@ scan_games() {
         [[ -d "$d" ]] || continue
         while IFS= read -r m; do
             [[ -f "$m" ]] || continue
-            local a n i lp ts
+            local a n i lp ts platform
             a=$(grep '"appid"' "$m" | sed 's/.*"appid"[[:space:]]*"\(.*\)"/\1/') || true
             n=$(grep '"name"' "$m" | sed 's/.*"name"[[:space:]]*"\(.*\)"/\1/') || true
             i=$(grep '"installdir"' "$m" | sed 's/.*"installdir"[[:space:]]*"\(.*\)"/\1/') || true
             lp=$(grep '"LastPlayed"' "$m" | sed 's/.*"LastPlayed"[[:space:]]*"\(.*\)"/\1/') || true
             ts=${lp:-$(stat --format='%Y' "$m" 2>/dev/null || echo 0)}
-            temp+=("$ts|$a|$n|$i|$lib")
+            platform="windows"
+            local gdir="$lib/steamapps/common/$i"
+            if [[ -d "$gdir" ]]; then
+                while IFS= read -r -d '' f; do
+                    if file -b "$f" 2>/dev/null | grep -qi "ELF.*executable"; then
+                        platform="linux"; break
+                    fi
+                done < <(find "$gdir" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+            fi
+            temp+=("$ts|$a|$n|$i|$lib|$platform")
         done < <(find "$d" -maxdepth 1 -name 'appmanifest_*.acf' \
             -exec stat --format='%Y %n' {} \; 2>/dev/null | sort -n | cut -d' ' -f2-)
     done
@@ -300,7 +309,7 @@ scan_games() {
 filter_games() {
     local filtered=()
     for game in "${GAMES[@]}"; do
-        IFS='|' read -r a n _ _ <<< "$game"
+        IFS='|' read -r a n _ _ _ _ <<< "$game"
         local s=0
         for t in "${TOOLS_APPIDS[@]}"; do
             [[ "$a" == "$t" ]] && { s=1; break; }
@@ -1040,7 +1049,7 @@ baixar_jogos() {
 
 show_game_menu() {
     local game="$1"
-    IFS='|' read -r a n i l <<< "$game"
+    IFS='|' read -r a n i l _ _ <<< "$game"
     $DEBUG && log_debug "OK    menu: $n (appid $a)" || true
 
     local linux_exe="" win_exe="" hn=false hp=false
@@ -1367,16 +1376,16 @@ show_main_menu() {
             box_mid "Loja"
             box_row "  [B]  Baixar jogos" "  [${VERDE}B${NC}]  Baixar jogos"
             box_mid "Biblioteca"
-            local idx=1 a n i l native mapping icon plat display_n padded
+            local idx=1 a n i l p native mapping icon plat display_n padded
             for game in "${GAMES[@]}"; do
-                IFS='|' read -r a n i l <<< "$game"
+                IFS='|' read -r a n i l _ p <<< "$game"
                 IFS='|' read -r native mapping <<< "$(controller_status "$a")"
                 if [[ "$native" == "yes" ]] || { [[ -n "$mapping" ]] && is_valid_mapping "$mapping"; }; then
                     icon="$ICON_GAMEPAD"
                 else
                     icon="$ICON_KEYBOARD"
                 fi
-                plat=$(get_platform_icon "$i" "$l")
+                plat=$([ "$p" = "linux" ] && echo "$ICON_LINUX" || echo "$ICON_WINDOWS")
                 display_n=$(truncate_name "$n" 22)
                 padded=$(pad_to_width "  [${idx}]  ${display_n}" 34)
                 box_row "${padded}${icon}  ${plat}"
