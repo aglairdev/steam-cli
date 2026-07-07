@@ -731,7 +731,9 @@ edit_params() {
         box_top
         box_mid "Parâmetros"
         box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
-        box_row "  Atual:${c:-(vazio)}" "  Atual:${CINZA}${c:-(vazio)}${NC}"
+        local c_show="$c"
+        [[ ${#c_show} -gt 36 ]] && c_show="${c_show:0:33}..."
+        box_row "  Atual:${c_show:-(vazio)}" "  Atual:${CINZA}${c_show:-(vazio)}${NC}"
         box_row ""
         box_row "  [1]  Editar" "  [${AMARELO}1${NC}]  Editar"
         box_row "  [2]  Limpar" "  [${VERMELHO}2${NC}]  Limpar"
@@ -744,6 +746,7 @@ edit_params() {
         case "$opt" in
             1)
                 echo ""
+                echo -e "  Atual:  ${CINZA}${c}${NC}\n"
                 read -e -p " > " novo
                 if [[ -n "$novo" ]]; then
                     save_params "$a" "$novo"
