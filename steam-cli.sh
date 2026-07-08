@@ -1725,6 +1725,9 @@ show_main_menu() {
                 [1-9]|[1-9][0-9])
                     if (( c >= 1 && c <= ${#GAMES[@]} )); then
                         show_game_menu "${GAMES[$((c-1))]}"
+                        sleep 1
+                        scan_games
+                        filter_games
                     else
                         invalid_option
                     fi ; true ;;
