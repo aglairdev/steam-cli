@@ -23,6 +23,7 @@ DEBUG_LOG=""
 
 REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-cli/main/steam-cli.sh"
 TOOLS_APPIDS=(1070560 1493710 1628350 2180100 228980 4183110)
+EXTERNAL_PROGRAMS=("gamemoderun" "mangohud")
 
 CONTROLE_DIR="$CONFIG_DIR/controle"
 CONTROLLERS_DIR="$CONTROLE_DIR/jogos"
@@ -32,6 +33,10 @@ GAMEPAD_TOOL_BIN="$GAMEPAD_TOOL_DIR/gamepad-tool"
 GAMEPAD_TOOL_VERSION_FILE="$GAMEPAD_TOOL_DIR/.version"
 GAMEPAD_TOOL_REPO_API="https://api.github.com/repos/General-Arcade/sdl2-gamepad-tool/releases/latest"
 GAMEPAD_TOOL_UPDATE_AVAILABLE=""
+
+DEPS_DIR="$CONFIG_DIR/deps"
+DEPS_CONF="$DEPS_DIR/deps.conf"
+DISTRO_ID=""
 
 VERDE='\033[38;2;120;170;120m'
 VERMELHO='\033[38;2;190;100;100m'
@@ -81,9 +86,70 @@ divider() {
     echo -e "${AZUL}-----------------------------------------------${NC}"
 }
 
+loading_dots() {
+    local s=$1 i=0
+    local frames=("." ".." "...")
+    while (( i < s * 3 )); do
+        printf "\r  ${CINZA}%s${NC}" "${frames[$((i % 3))]}"
+        sleep 0.33
+        i=$((i + 1))
+    done
+    printf "\r                    \r"
+}
+
 invalid_option() {
-    echo -e "  ${VERMELHO}Comando não disponível${NC}"
+    echo -e "  ${VERMELHO}Comando não disponível.${NC}"
     read -n1 -s -r
+}
+
+check_external_program() {
+    command -v "$1" &>/dev/null
+}
+
+detect_params_programs() {
+    local params="$1"
+    local found=()
+    for prog in "${EXTERNAL_PROGRAMS[@]}"; do
+        if [[ "$params" == *"$prog"* ]]; then
+            found+=("$prog")
+        fi
+    done
+    echo "${found[@]}"
+}
+
+show_params_programs_status() {
+    local params="$1"
+    local programs=()
+    read -ra programs <<< "$(detect_params_programs "$params")"
+    for prog in "${programs[@]}"; do
+        if check_external_program "$prog"; then
+            echo -e "  ${CHECK} ${prog}"
+        else
+            echo -e "  ${XIS} ${prog} ~ não encontrado"
+        fi
+    done
+}
+
+exec_game() {
+    local dir="$1"
+    local exe="$2"
+    local params="$3"
+    local is_debug="$4"
+
+    local game_cmd="./$exe"
+    local final_cmd
+
+    if [[ "$params" == *"%command%"* ]]; then
+        final_cmd="${params//%command%/$game_cmd}"
+    else
+        final_cmd="$params $game_cmd"
+    fi
+
+    if $is_debug; then
+        (cd "$dir"; eval "$final_cmd" 2>&1 | grep -v -E '^gamemodeauto:') &
+    else
+        (cd "$dir"; eval "$final_cmd" &>/dev/null) &
+    fi
 }
 
 # ===============
@@ -221,6 +287,210 @@ setup_config() {
 EOC
     fi
     source "$CONFIG_DIR/proton.conf"
+
+    mkdir -p "$DEPS_DIR"
+    if [[ ! -s "$DEPS_CONF" ]]; then
+        cat > "$DEPS_CONF" <<-'EOC'
+# mangohud
+mangohud_arch="mangohud"
+mangohud_fedora="mangohud"
+mangohud_ubuntu="mangohud"
+
+# gamemode
+gamemode_arch="gamemode"
+gamemode_fedora="gamemode"
+gamemode_ubuntu="gamemode"
+
+# deps 32-bit
+deps32_arch="lib32-mesa lib32-openal lib32-libxi lib32-libxrandr lib32-libvorbis"
+deps32_fedora="mesa-openal libXxf86vm.i686 libXi.i686"
+deps32_ubuntu="libgl1-mesa-glx libopenal1 libxi6 libxrandr2"
+EOC
+    fi
+    source "$DEPS_CONF"
+}
+
+# ===============
+# DEPENDÊNCIAS
+# ===============
+
+detect_distro() {
+    if [[ -f /etc/os-release ]]; then
+        source /etc/os-release
+        DISTRO_ID="$ID"
+    fi
+}
+
+normalize_distro_id() {
+    case "$DISTRO_ID" in
+        arch|manjaro|endeavouros) echo "arch" ;;
+        fedora|rhel|centos)       echo "fedora" ;;
+        ubuntu|debian|linuxmint)  echo "ubuntu" ;;
+        *) echo "$DISTRO_ID" ;;
+    esac
+}
+
+get_pkg() {
+    local name="$1"
+    local norm
+    norm=$(normalize_distro_id)
+    local var="${name}_${norm}"
+    if [[ -n "${!var+x}" ]]; then
+        echo "${!var}"
+    fi
+}
+
+check_installed() {
+    local pkgs="$1"
+    case "$DISTRO_ID" in
+        arch|manjaro|endeavouros)
+            for pkg in $pkgs; do
+                pacman -Qi "$pkg" &>/dev/null || return 1
+            done
+            return 0
+            ;;
+        fedora|rhel|centos)
+            for pkg in $pkgs; do
+                rpm -q "$pkg" &>/dev/null || return 1
+            done
+            return 0
+            ;;
+        ubuntu|debian|linuxmint)
+            for pkg in $pkgs; do
+                dpkg -l "$pkg" 2>/dev/null | grep -q "^ii" || return 1
+            done
+            return 0
+            ;;
+    esac
+}
+
+get_install_cmd() {
+    case "$DISTRO_ID" in
+        arch|manjaro|endeavouros) echo "sudo pacman -S" ;;
+        fedora|rhel|centos)       echo "sudo dnf install" ;;
+        ubuntu|debian|linuxmint)  echo "sudo apt install" ;;
+    esac
+}
+
+dep_status_icon() {
+    local pkg="$1"
+    if check_installed "$pkg"; then
+        echo -e "${VERDE}✔${NC}"
+    else
+        echo -e "${VERMELHO}✗${NC}"
+    fi
+}
+
+install_dep() {
+    local pkgs="$1"
+    local cmd
+    cmd=$(get_install_cmd)
+    echo ""
+    echo -e "  ${CINZA}Comando:${NC} $cmd $pkgs"
+    read -p "  Executar? (s/N): " resp
+    case "${resp,,}" in
+        s|sim)
+            if $cmd $pkgs; then
+                echo -e "  ${CHECK} concluído"
+            else
+                echo -e "  ${XIS} falha na instalação"
+            fi
+            ;;
+    esac
+    loading_dots 1
+}
+
+check_deps32_status() {
+    local pkgs
+    pkgs=$(get_pkg "deps32")
+    [[ -z "$pkgs" ]] && return
+    local missing=()
+    for pkg in $pkgs; do
+        if ! check_installed "$pkg"; then
+            missing+=("$pkg")
+        fi
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        echo -e "  ${VERMELHO}⚠ deps32 faltando:${NC} ${missing[*]}"
+    else
+        echo -e "  ${CHECK} deps32"
+    fi
+}
+
+show_deps_menu() {
+    detect_distro
+
+    while true; do
+        local pkg_mangohud pkg_gamemode pkg_deps32
+        pkg_mangohud=$(get_pkg "mangohud")
+        pkg_gamemode=$(get_pkg "gamemode")
+        pkg_deps32=$(get_pkg "deps32")
+
+        local s_m s_g s_d
+        s_m=$(dep_status_icon "$pkg_mangohud")
+        s_g=$(dep_status_icon "$pkg_gamemode")
+        s_d=$(dep_status_icon "$pkg_deps32")
+
+        clear
+        echo ""
+        local debug_tag=""
+        $DEBUG && debug_tag="[DEBUG] " || true
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        box_top
+        box_mid "Dependências"
+        box_row "  · mangohud  · gamemode  · d32" "  ${s_m} mangohud  ${s_g} gamemode  ${s_d} d32"
+        box_row ""
+        box_row "  [1]  mangohud" "  [${AMARELO}1${NC}]  mangohud"
+        box_row "  [2]  gamemode" "  [${AMARELO}2${NC}]  gamemode"
+        box_row "  [3]  deps 32-bit" "  [${AMARELO}3${NC}]  deps 32-bit"
+        box_row "  [4]  instalar todas" "  [${AMARELO}4${NC}]  instalar todas"
+        box_mid "Sair"
+        box_row "  [0]  Voltar"
+        box_bottom
+        debug_flush
+        echo ""
+        read -p " > " c
+
+        case "$c" in
+            1) install_dep "$pkg_mangohud" ;;
+            2) install_dep "$pkg_gamemode" ;;
+            3) install_dep "$pkg_deps32" ;;
+            4)
+                install_dep "$pkg_mangohud"
+                install_dep "$pkg_gamemode"
+                install_dep "$pkg_deps32"
+                ;;
+            0) return ;;
+            *) invalid_option ;;
+        esac
+    done
+}
+
+show_config_menu() {
+    while true; do
+        clear
+        echo ""
+        local debug_tag=""
+        $DEBUG && debug_tag="[DEBUG] " || true
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        box_top
+        box_mid "Config"
+        box_row "  [1]  Controle" "  [${AMARELO}1${NC}]  Controle"
+        box_row "  [2]  Dependências" "  [${AMARELO}2${NC}]  Dependências"
+        box_mid "Sair"
+        box_row "  [0]  Voltar"
+        box_bottom
+        debug_flush
+        echo ""
+        read -p " > " c
+
+        case "$c" in
+            1) show_controllers_menu ;;
+            2) show_deps_menu ;;
+            0) return ;;
+            *) invalid_option ;;
+        esac
+    done
 }
 
 # ===============
@@ -376,7 +646,7 @@ find_game_exe() {
             uninstall*|unins*|*redist*|vcredist*|dxwebsetup*|dotnet*|*setup*) continue ;;
         esac
         exes+=("$e")
-    done < <(find "$d" -maxdepth 2 -name '*.exe' -type f -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 4 -name '*.exe' -type f -print0 2>/dev/null)
     $DEBUG && log_debug "EXE   ${#exes[@]} executáveis .exe encontrados em $i" || true
     case ${#exes[@]} in
         0) $DEBUG && log_debug "FALHA nenhum .exe encontrado para $i"; return 1 ;;
@@ -402,7 +672,7 @@ find_linux_exe() {
     local il="${i,,}" elfs=()
     while IFS= read -r -d '' f; do
         file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$f")
-    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
     $DEBUG && log_debug "LIN   ${#elfs[@]} ELF encontrados em $i" || true
 
     local candidate=""
@@ -731,7 +1001,9 @@ edit_params() {
         box_top
         box_mid "Parâmetros"
         box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
-        box_row "  Atual:${c:-(vazio)}" "  Atual:${CINZA}${c:-(vazio)}${NC}"
+        local c_show="$c"
+        [[ ${#c_show} -gt 36 ]] && c_show="${c_show:0:33}..."
+        box_row "  Atual:${c_show:-(vazio)}" "  Atual:${CINZA}${c_show:-(vazio)}${NC}"
         box_row ""
         box_row "  [1]  Editar" "  [${AMARELO}1${NC}]  Editar"
         box_row "  [2]  Limpar" "  [${VERMELHO}2${NC}]  Limpar"
@@ -744,6 +1016,7 @@ edit_params() {
         case "$opt" in
             1)
                 echo ""
+                echo -e "  Atual:  ${CINZA}${c}${NC}\n"
                 read -e -p " > " novo
                 if [[ -n "$novo" ]]; then
                     save_params "$a" "$novo"
@@ -805,7 +1078,7 @@ launch_native() {
             chmod +x "$f" 2>/dev/null || true
             altered=true
         fi
-    done < <(find "$d" -maxdepth 2 -type f \( -executable -o -name '*launcher*' \) -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 4 -type f \( -executable -o -name '*launcher*' \) -print0 2>/dev/null)
     while IFS= read -r -d '' f; do
         if file -b "$f" 2>/dev/null | grep -qi "ELF.*executable"; then
             if [[ ! -x "$f" ]]; then
@@ -813,7 +1086,7 @@ launch_native() {
                 altered=true
             fi
         fi
-    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
     local libdir="$d/lib"
     if [[ -d "$libdir" ]] && [[ -n "$(find "$libdir" -type f ! -perm -o+w -print -quit 2>/dev/null)" ]]; then
         find "$libdir" -type f ! -perm -o+w -exec chmod +wx {} \; 2>/dev/null || true
@@ -833,17 +1106,19 @@ launch_native() {
     export SteamAppId="$a" SteamGameId="$a"
 
     if $DEBUG; then
+        show_params_programs_status "$p" 
         log_debug "OK    binário: $e"
         if [[ -z "$p" ]]; then
             log_debug "OK    params: nenhum"
         else
             log_debug "OK    params: $p"
         fi
+        check_deps32_status         
     fi
 
     $DEBUG && log_debug "LAUNCH tentativa direta: ./$b" || true
-    (cd "$d"; if $DEBUG; then "./$b" $p; else "./$b" $p &>/dev/null; fi) &
-    GAME_PID=$!; sleep 1
+    exec_game "$d" "$b" "$p" "$DEBUG"
+    GAME_PID=$!; loading_dots 1
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
         echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
@@ -861,8 +1136,12 @@ launch_native() {
     rt=$(find_runtime) || true
     if [[ -n "$rt" ]]; then
         $DEBUG && log_debug "LAUNCH tentativa via runtime: $rt" || true
-        (cd "$d"; if $DEBUG; then "$rt" -- "./$b" $p; else "$rt" -- "./$b" $p &>/dev/null; fi) &
-        GAME_PID=$!; sleep 1
+        if $DEBUG; then
+            (cd "$d"; "$rt" -- eval "./$b" $p) &
+        else
+            (cd "$d"; "$rt" -- "./$b" $p &>/dev/null) &
+        fi
+        GAME_PID=$!; loading_dots 1
         if kill -0 "$GAME_PID" 2>/dev/null; then
             echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
             echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
@@ -885,12 +1164,8 @@ launch_native() {
         local s="${rest[0]}" sn
         sn=$(basename "$s")
         $DEBUG && log_debug "LAUNCH tentativa alternativa: $sn" || true
-        if [[ -n "$rt" ]]; then
-            (cd "$d"; if $DEBUG; then "$rt" -- "./$sn" $p; else "$rt" -- "./$sn" $p &>/dev/null; fi) &
-        else
-            (cd "$d"; if $DEBUG; then "./$sn" $p; else "./$sn" $p &>/dev/null; fi) &
-        fi
-        GAME_PID=$!; sleep 1
+        exec_game "$d" "$sn" "$p" "$DEBUG"
+        GAME_PID=$!; loading_dots 1
         if kill -0 "$GAME_PID" 2>/dev/null; then
             echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
             echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
@@ -950,6 +1225,8 @@ launch_proton() {
         log_debug "OK    proton: $pr"
         log_debug "OK    compatdata: $cd"
         log_debug "OK    STEAM_HOME: $STEAM_HOME"
+        show_params_programs_status "$p"
+        check_deps32_status
     fi
 
     mkdir -p "$cd"
@@ -960,9 +1237,20 @@ launch_proton() {
     echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (${pl})"
     $DEBUG && log_debug "LAUNCH executando proton: $pr run $e" || true
 
-    if $DEBUG; then "$pr" run "$e" $p &
-    else "$pr" run "$e" $p &>/dev/null & fi
-    GAME_PID=$!; sleep 1
+    local proton_cmd="\"$pr\" run \"$e\""
+    if [[ -n "$p" ]]; then
+        if [[ "$p" == *"%command%"* ]]; then
+            proton_cmd="${p//%command%/$proton_cmd}"
+        else
+            proton_cmd="$proton_cmd $p"
+        fi
+    fi
+    if $DEBUG; then
+        eval "$proton_cmd" 2>&1 | grep -v -E '^gamemodeauto:' &
+    else
+        eval "$proton_cmd" &>/dev/null &
+    fi
+    GAME_PID=$!; loading_dots 1
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
         echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
@@ -1024,7 +1312,7 @@ check_update() {
     echo ""
     echo -e "  ${AGL} nova versão: ${VERDE}v${rv}${NC} (atual: ${VERMELHO}v${VERSION}${NC})"
     divider
-    sleep 1
+    loading_dots 1
     read -p "  Atualizar? (s/N): " resp
     case "${resp,,}" in
         s|sim)
@@ -1063,9 +1351,11 @@ baixar_jogos() {
         $DEBUG && log_debug "OK    Manifest: baixando jogos" || true
         echo -e "  ${CINZA}github.com/aglairdev/Manifest${NC}"
         divider
+        loading_dots 2
         manifest
         echo ""
-        echo "[scan] atualizando ..."
+        echo -e "  ${CINZA}[scan]${NC} atualizando ..."
+        loading_dots 2
         scan_games
         filter_games
         echo -e "  ${CHECK} lista atualizada"
@@ -1112,7 +1402,7 @@ show_game_menu() {
         else
             box_row "  [!]  Jogar (Proton não configurado)" "  [${VERMELHO}!${NC}]  Jogar (Proton não configurado)"
         fi
-        box_row "  [2]  Mapear controle" "  [${AMARELO}2${NC}]  Mapear controle"
+        box_row "  [2]  Controle" "  [${AMARELO}2${NC}]  Controle"
         box_row "  [3]  Parâmetros" "  [${AMARELO}3${NC}]  Parâmetros"
         box_row "  [4]  Excluir" "  [${VERMELHO}4${NC}]  Excluir"
         box_mid "Sair"
@@ -1183,7 +1473,7 @@ show_game_controller_menu() {
         $DEBUG && debug_tag="[DEBUG] " || true
         echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
         box_top
-        box_mid "Mapear"
+        box_mid "Controle"
         box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
         box_row "  Status: ${status_icon}" "  Status: ${NEGRITO}${status_icon}${NC}"
         box_row ""
@@ -1211,7 +1501,7 @@ show_game_controller_menu() {
                     $DEBUG && log_debug "OK    suporte nativo marcado (appid $a)" || true
                     echo -e "  ${CHECK} suporte nativo marcado"
                 fi
-                sleep 1
+                loading_dots 1
                 continue ;;
             2)
                 $DEBUG && log_debug "OK    iniciando configuração de mapeamento (appid $a)" || true
@@ -1307,15 +1597,15 @@ show_controller_device_menu() {
             else
                 gamepad_tool_download || true
             fi
-            sleep 1
+            loading_dots 1
         elif (( opt_update > 0 )) && [[ "$c" == "$opt_update" ]]; then
             gamepad_tool_download || true
-            sleep 1
+            loading_dots 1
         elif [[ "$c" == "$opt_reset" ]]; then
             rm -f "$CONTROLLER_GLOBAL_CONF" || true
             $DEBUG && log_debug "OK    mapeamento geral resetado" || true
             echo -e "  ${CHECK} mapeamento geral resetado"
-            sleep 1
+            loading_dots 1
         elif (( opt_remove > 0 )) && [[ "$c" == "$opt_remove" ]]; then
             echo ""
             echo -e "  Remover gamepad-tool? (s/N)"
@@ -1429,8 +1719,9 @@ show_main_menu() {
                 box_row "${padded}${icon}  ${plat}"
                 ((idx++))
             done
-            box_mid "Controle"
-            box_row "  [C]  Gerenciar" "  [${AMARELO}C${NC}]  Gerenciar"
+            box_mid "Config"
+            box_row "  [C]  Controle" "  [${AMARELO}C${NC}]  Controle"
+            box_row "  [D]  Dependências" "  [${AMARELO}D${NC}]  Dependências"
             box_mid "Sair"
             box_row "  [0]  Fechar" "  [${VERMELHO}0${NC}]  Fechar"
             box_bottom
@@ -1440,10 +1731,14 @@ show_main_menu() {
             case "$c" in
                 0) $DEBUG && log_debug "OK    fechando steam-cli"; prompt_exit_steam; exit 0 ; true ;;
                 [bB]) $DEBUG && log_debug "OK    acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
-                [cC]) $DEBUG && log_debug "OK    acessando gerenciar controles"; show_controllers_menu ; true ;;
+                [cC]) $DEBUG && log_debug "OK    acessando controles"; show_controllers_menu ; true ;;
+                [dD]) $DEBUG && log_debug "OK    acessando dependências"; show_deps_menu ; true ;;
                 [1-9]|[1-9][0-9])
                     if (( c >= 1 && c <= ${#GAMES[@]} )); then
                         show_game_menu "${GAMES[$((c-1))]}"
+                        loading_dots 1
+                        scan_games
+                        filter_games
                     else
                         invalid_option
                     fi ; true ;;
@@ -1498,7 +1793,7 @@ main() {
             $DEBUG && log_debug "OK    iniciando steam headless" || true
             if $DEBUG; then $STEAM_CMD -no-browser -silent &
             else $STEAM_CMD -no-browser -silent &>/dev/null & fi
-            sleep 2
+            loading_dots 2
         else
             echo -e "  ${AMARELO}[INFO]${NC} Steam não encontrado"
             $DEBUG && log_debug "FALHA steam binário não encontrado" || true
