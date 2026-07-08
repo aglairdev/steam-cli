@@ -1,16 +1,16 @@
 #
-# © 2026 steam-cli ~ AGL ~ github.com/aglairdev
+# © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 #
 VERSION="1.0.3"
 AGL="ꕤ"
 
 STEAM_HOME=""
 STEAM_CMD="steam"
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/steam-cli"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/steam-tui"
 DEBUG=false
 DEBUG_LOG=""
 
-REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-cli/main/steam-cli.sh"
+REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/steam-tui.sh"
 TOOLS_APPIDS=(1070560 1493710 1628350 2180100 228980 4183110)
 EXTERNAL_PROGRAMS=("gamemoderun" "mangohud")
 

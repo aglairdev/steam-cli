@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# steam-cli ~ biblioteca de jogos steam via terminal
-# © 2026 steam-cli ~ AGL ~ github.com/aglairdev
+# steam-tui ~ biblioteca de jogos steam via terminal
+# © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 # Licença: MIT
 #
-# uso:  ./steam-cli.sh
-#       ./steam-cli.sh -d     #debug
-#       ./steam-cli.sh -v     #versão
-#       ./steam-cli.sh -h     #ajuda
+# uso:  ./steam-tui.sh
+#       ./steam-tui.sh -d     #debug
+#       ./steam-tui.sh -v     #versão
+#       ./steam-tui.sh -h     #ajuda
 #
 
 set -euo pipefail
@@ -31,9 +31,9 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -d|--debug) DEBUG=true ;;
-            -v|--version) echo -e "  ${AGL} steam-cli v${VERSION}"; exit 0 ;;
+            -v|--version) echo -e "  ${AGL} steam-tui v${VERSION}"; exit 0 ;;
             -h|--help)
-                echo "uso: ./steam-cli.sh [-d] [-v] [-h]"
+                echo "uso: ./steam-tui.sh [-d] [-v] [-h]"
                 echo "  -d  mostra output completo (nativo + proton)"
                 echo "  -v  mostra versão"
                 echo "  -h  mostra ajuda"
@@ -49,7 +49,7 @@ main() {
             echo "--" > "$DEBUG_LOG"
         fi
         echo "[$ts] === INÍCIO SESSAO ===" >> "$DEBUG_LOG"
-        echo "[$ts] steam-cli v$VERSION" >> "$DEBUG_LOG"
+        echo "[$ts] steam-tui v$VERSION" >> "$DEBUG_LOG"
     fi
 
     setup_config
@@ -62,7 +62,7 @@ main() {
     $DEBUG && debug_tag="[DEBUG] " || true
 
     if ! pgrep -x steam >/dev/null 2>&1; then
-        echo -e "  ${BOLINHO} ${debug_tag}steam-cli v${VERSION} ${AGL}"
+        echo -e "  ${BOLINHO} ${debug_tag}steam-tui v${VERSION} ${AGL}"
         if command -v steam &>/dev/null; then
             echo -e "  ${CINZA}[INFO] iniciando steam headless ..${NC}"
             $DEBUG && log_debug "OK    iniciando steam headless" || true
@@ -74,7 +74,7 @@ main() {
             $DEBUG && log_debug "FALHA steam binário não encontrado" || true
         fi
     else
-        echo -e "  ${BOLINHO} ${debug_tag}steam-cli v${VERSION} ${AGL}"
+        echo -e "  ${BOLINHO} ${debug_tag}steam-tui v${VERSION} ${AGL}"
     fi
 
     show_main_menu "$@"

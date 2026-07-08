@@ -1,5 +1,5 @@
 #
-# © 2026 steam-cli ~ AGL ~ github.com/aglairdev
+# © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 #
 # ===============
 # DEPENDÊNCIAS
@@ -126,7 +126,7 @@ show_deps_menu() {
         echo ""
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
         box_top
         box_mid "Dependências"
         box_row "  · mangohud  · gamemode  · d32" "  ${s_m} mangohud  ${s_g} gamemode  ${s_d} d32"
@@ -163,7 +163,7 @@ show_config_menu() {
         echo ""
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
         box_top
         box_mid "Config"
         box_row "  [1]  Controle" "  [${AMARELO}1${NC}]  Controle"

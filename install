@@ -14,13 +14,13 @@ CROSS="✗"
 AGL="ꕤ"
 
 DIR_BIN="$HOME/.local/bin"
-DIR_CONF="$HOME/.config/steam-cli"                          
-REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-cli/main/steam-cli.sh"  
-BIN_NAME="steam-cli"                                         
+DIR_CONF="$HOME/.config/steam-tui"                          
+REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/steam-tui.sh"  
+BIN_NAME="steam-tui"                                         
 
 clear
 echo ""
-echo -e "  ${STEAM_BLUE_L}steam-cli ${AGL}${RESET}\n"       
+echo -e "  ${STEAM_BLUE_L}steam-tui ${AGL}${RESET}\n"       
 echo -e "  Estabelecendo conexão com o repositório..."
 
 check_deps() {
@@ -33,7 +33,7 @@ check_deps() {
     done
 
     if [ ${#missing[@]} -ne 0 ]; then
-        echo -e "\n  ${YELLOW}Para funcionar, o steam-cli precisa de:${RESET} ${missing[*]}" 
+        echo -e "\n  ${YELLOW}Para funcionar, o steam-tui precisa de:${RESET} ${missing[*]}" 
         read -p "  Permitir que o instalador tente resolver via gerenciador de pacotes? (s/n): " auth
         if [[ "$auth" == "s" ]]; then
             if command -v dnf &> /dev/null; then
@@ -67,11 +67,11 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
     rm -f "$DIR_BIN/$BIN_NAME"
 
     if ln -s "$DIR_CONF/$BIN_NAME.sh" "$DIR_BIN/$BIN_NAME" 2>/dev/null; then
-        echo -e "\n  ${GREEN}${CHECK}${RESET} steam-cli configurado com sucesso!"  
+        echo -e "\n  ${GREEN}${CHECK}${RESET} steam-tui configurado com sucesso!"  
     else
         if [[ ":$PATH:" == *":$DIR_BIN:"* ]]; then
             if sudo ln -sf "$DIR_CONF/$BIN_NAME.sh" "$DIR_BIN/$BIN_NAME" 2>/dev/null; then
-                echo -e "\n  ${GREEN}${CHECK}${RESET} steam-cli configurado com sucesso!"  
+                echo -e "\n  ${GREEN}${CHECK}${RESET} steam-tui configurado com sucesso!"  
             else
                 echo -e "\n  ${RED}${CROSS} Não foi possível criar o link simbólico.${RESET}"
                 echo -e "  Execute manualmente:"
@@ -128,7 +128,7 @@ EOC
         esac
         echo -e "  Depois reinicie o terminal."
     else
-        echo -e "\n  Tudo pronto. Basta digitar ${STEAM_BLUE_L}steam-cli${RESET} para começar.\n" 
+        echo -e "\n  Tudo pronto. Basta digitar ${STEAM_BLUE_L}steam-tui${RESET} para começar.\n" 
     fi
 else
     echo -e "\n  ${RED}${CROSS} Ops! Ocorreu um problema ao baixar o arquivo.${RESET}"

@@ -1,5 +1,5 @@
 #
-# © 2026 steam-cli ~ AGL ~ github.com/aglairdev
+# © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 #
 # ===============
 # SETUP
@@ -66,7 +66,7 @@ edit_params() {
         echo ""
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
         box_top
         box_mid "Parâmetros"
         box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
