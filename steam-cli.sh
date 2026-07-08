@@ -87,7 +87,7 @@ divider() {
 }
 
 invalid_option() {
-    echo -e "  ${VERMELHO}Comando não disponível${NC}"
+    echo -e "  ${VERMELHO}Comando não disponível.${NC}"
     read -n1 -s -r
 }
 
@@ -1340,9 +1340,11 @@ baixar_jogos() {
         $DEBUG && log_debug "OK    Manifest: baixando jogos" || true
         echo -e "  ${CINZA}github.com/aglairdev/Manifest${NC}"
         divider
+        sleep 2
         manifest
         echo ""
-        echo "[scan] atualizando ..."
+        echo -e "  ${CINZA}[scan]${NC} atualizando ..."
+        sleep 2
         scan_games
         filter_games
         echo -e "  ${CHECK} lista atualizada"
