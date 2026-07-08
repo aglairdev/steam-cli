@@ -1,5 +1,5 @@
 #
-# © 2026 steam-cli ~ AGL ~ github.com/aglairdev
+# © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 #
 # ===============
 # CONTROLE

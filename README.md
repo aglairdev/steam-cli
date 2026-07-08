@@ -1,6 +1,6 @@
 <div align="center">
 
-[![STEAM-CLI](https://img.shields.io/badge/STEAM--CLI-3a6f8f?style=for-the-badge)](https://github.com/aglairdev/steam-cli)
+[![steam-tui](https://img.shields.io/badge/STEAM--CLI-3a6f8f?style=for-the-badge)](https://github.com/aglairdev/steam-tui)
 </div>
 
 ## Que isso?
@@ -57,14 +57,14 @@ curl -fsSL steamcli.pages.dev/install | bash
 ## Uso
 
 ```bash
-steam-cli
+steam-tui
 ```
 
 ### Flags
 
 | Flag | Descrição |
 |------|-----------|
-| `-d` | modo debug (`~/.config/steam-cli/debug.log`) |
+| `-d` | modo debug (`~/.config/steam-tui/debug.log`) |
 | `-v` | exibe versão |
 | `-h` | mostra ajuda |
 
@@ -74,7 +74,7 @@ steam-cli
 - **Inicia jogos nativos Linux** ~ corrige permissões automaticamente e usa Steam Runtime quando necessário
 - **Inicia jogos Windows via Proton** ~ detecta o primeiro Proton disponível no sistema
 - **Parâmetros por jogo** ~ define flags de lançamento individuais (ex.: `-opengl`, `-windowed`)
-- **Proton configurável** ~ define um Proton padrão global ou um específico por AppID em `~/.config/steam-cli/proton.conf`
+- **Proton configurável** ~ define um Proton padrão global ou um específico por AppID em `~/.config/steam-tui/proton.conf`
 - **Remove jogos** diretamente pelo menu
 - **Download opcional** via [Manifest](https://github.com/aglairdev/Manifest) ~ baixa manifests Steam sem abrir a GUI
 
@@ -82,9 +82,9 @@ steam-cli
 
 | Arquivo | Conteúdo |
 |---|---|
-| `~/.config/steam-cli/proton.conf` | Proton global e por AppID |
-| `~/.config/steam-cli/params/<appid>` | parâmetros de lançamento por jogo |
-| `~/.config/steam-cli/debug.log` | logs do modo debug |
+| `~/.config/steam-tui/proton.conf` | Proton global e por AppID |
+| `~/.config/steam-tui/params/<appid>` | parâmetros de lançamento por jogo |
+| `~/.config/steam-tui/debug.log` | logs do modo debug |
 
 ## Atualização
 
@@ -101,8 +101,8 @@ Responda `s` para baixar e reiniciar automaticamente.
 ## Remoção
 
 ```bash
-rm ~/.local/bin/steam-cli
-rm -r ~/.config/steam-cli
+rm ~/.local/bin/steam-tui
+rm -r ~/.config/steam-tui
 ```
 
 ## Créditos
@@ -111,6 +111,6 @@ rm -r ~/.config/steam-cli
 
 ## Licença
 
-[MIT](https://github.com/aglairdev/steam-cli/blob/main/LICENSE)
+[MIT](https://github.com/aglairdev/steam-tui/blob/main/LICENSE)
 
 <p align="center">ꕤ AGL</p>

@@ -1,5 +1,5 @@
 #
-# © 2026 steam-cli ~ AGL ~ github.com/aglairdev
+# © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 #
 # ===============
 # MENU DO JOGO
@@ -26,7 +26,7 @@ show_game_menu() {
         echo ""
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
         box_top
         box_mid "$n"
         local pt_fmt
@@ -105,7 +105,7 @@ show_game_controller_menu() {
         echo ""
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
         box_top
         box_mid "Controle"
         box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
@@ -188,7 +188,7 @@ show_controller_device_menu() {
         echo ""
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
         box_top
         box_mid "$dname"
         if [[ -n "$global_map" ]] && is_valid_mapping "$global_map"; then
@@ -270,7 +270,7 @@ show_controllers_menu() {
         echo ""
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
         box_top
         box_mid "Controles"
         if [[ ${#devices[@]} -eq 0 ]]; then
@@ -317,7 +317,7 @@ show_main_menu() {
         echo ""
         local debug_tag=""
         $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
 
         if [[ ${#GAMES[@]} -eq 0 ]]; then
             box_top
@@ -329,7 +329,7 @@ show_main_menu() {
             debug_flush
             read -p " > " c
             case "$c" in
-                0) $DEBUG && log_debug "OK    fechando steam-cli"; prompt_exit_steam; exit 0 ; true ;;
+                0) $DEBUG && log_debug "OK    fechando steam-tui"; prompt_exit_steam; exit 0 ; true ;;
                 [bB]) $DEBUG && log_debug "OK    acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
                 *) invalid_option ;;
             esac
@@ -363,7 +363,7 @@ show_main_menu() {
             echo ""
             read -p " > " c
             case "$c" in
-                0) $DEBUG && log_debug "OK    fechando steam-cli"; prompt_exit_steam; exit 0 ; true ;;
+                0) $DEBUG && log_debug "OK    fechando steam-tui"; prompt_exit_steam; exit 0 ; true ;;
                 [bB]) $DEBUG && log_debug "OK    acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
                 [cC]) $DEBUG && log_debug "OK    acessando controles"; show_controllers_menu ; true ;;
                 [dD]) $DEBUG && log_debug "OK    acessando dependências"; show_deps_menu ; true ;;

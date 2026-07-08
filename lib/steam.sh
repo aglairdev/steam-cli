@@ -1,5 +1,5 @@
 #
-# © 2026 steam-cli ~ AGL ~ github.com/aglairdev
+# © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 #
 # ===============
 # DETECÇÃO STEAM
@@ -216,7 +216,7 @@ baixar_jogos() {
     echo ""
     local debug_tag=""
     $DEBUG && debug_tag="[DEBUG] " || true
-    echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-cli ${AGL}${NC}"
+    echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
     divider
     echo -e "  ${VERDE}Manifest${NC} ~ baixar manifests Steam"
     echo ""
