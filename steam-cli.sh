@@ -86,6 +86,17 @@ divider() {
     echo -e "${AZUL}-----------------------------------------------${NC}"
 }
 
+loading_dots() {
+    local s=$1 i=0
+    local frames=("." ".." "...")
+    while (( i < s * 3 )); do
+        printf "\r  ${CINZA}%s${NC}" "${frames[$((i % 3))]}"
+        sleep 0.33
+        i=$((i + 1))
+    done
+    printf "\r                    \r"
+}
+
 invalid_option() {
     echo -e "  ${VERMELHO}Comando não disponível.${NC}"
     read -n1 -s -r
@@ -386,7 +397,7 @@ install_dep() {
             fi
             ;;
     esac
-    sleep 1
+    loading_dots 1
 }
 
 check_deps32_status() {
@@ -1107,7 +1118,7 @@ launch_native() {
 
     $DEBUG && log_debug "LAUNCH tentativa direta: ./$b" || true
     exec_game "$d" "$b" "$p" "$DEBUG"
-    GAME_PID=$!; sleep 1
+    GAME_PID=$!; loading_dots 1
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
         echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
@@ -1130,7 +1141,7 @@ launch_native() {
         else
             (cd "$d"; "$rt" -- "./$b" $p &>/dev/null) &
         fi
-        GAME_PID=$!; sleep 1
+        GAME_PID=$!; loading_dots 1
         if kill -0 "$GAME_PID" 2>/dev/null; then
             echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
             echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
@@ -1154,7 +1165,7 @@ launch_native() {
         sn=$(basename "$s")
         $DEBUG && log_debug "LAUNCH tentativa alternativa: $sn" || true
         exec_game "$d" "$sn" "$p" "$DEBUG"
-        GAME_PID=$!; sleep 1
+        GAME_PID=$!; loading_dots 1
         if kill -0 "$GAME_PID" 2>/dev/null; then
             echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
             echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
@@ -1239,7 +1250,7 @@ launch_proton() {
     else
         eval "$proton_cmd" &>/dev/null &
     fi
-    GAME_PID=$!; sleep 1
+    GAME_PID=$!; loading_dots 1
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
         echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
@@ -1301,7 +1312,7 @@ check_update() {
     echo ""
     echo -e "  ${AGL} nova versão: ${VERDE}v${rv}${NC} (atual: ${VERMELHO}v${VERSION}${NC})"
     divider
-    sleep 1
+    loading_dots 1
     read -p "  Atualizar? (s/N): " resp
     case "${resp,,}" in
         s|sim)
@@ -1340,11 +1351,11 @@ baixar_jogos() {
         $DEBUG && log_debug "OK    Manifest: baixando jogos" || true
         echo -e "  ${CINZA}github.com/aglairdev/Manifest${NC}"
         divider
-        sleep 2
+        loading_dots 2
         manifest
         echo ""
         echo -e "  ${CINZA}[scan]${NC} atualizando ..."
-        sleep 2
+        loading_dots 2
         scan_games
         filter_games
         echo -e "  ${CHECK} lista atualizada"
@@ -1490,7 +1501,7 @@ show_game_controller_menu() {
                     $DEBUG && log_debug "OK    suporte nativo marcado (appid $a)" || true
                     echo -e "  ${CHECK} suporte nativo marcado"
                 fi
-                sleep 1
+                loading_dots 1
                 continue ;;
             2)
                 $DEBUG && log_debug "OK    iniciando configuração de mapeamento (appid $a)" || true
@@ -1586,15 +1597,15 @@ show_controller_device_menu() {
             else
                 gamepad_tool_download || true
             fi
-            sleep 1
+            loading_dots 1
         elif (( opt_update > 0 )) && [[ "$c" == "$opt_update" ]]; then
             gamepad_tool_download || true
-            sleep 1
+            loading_dots 1
         elif [[ "$c" == "$opt_reset" ]]; then
             rm -f "$CONTROLLER_GLOBAL_CONF" || true
             $DEBUG && log_debug "OK    mapeamento geral resetado" || true
             echo -e "  ${CHECK} mapeamento geral resetado"
-            sleep 1
+            loading_dots 1
         elif (( opt_remove > 0 )) && [[ "$c" == "$opt_remove" ]]; then
             echo ""
             echo -e "  Remover gamepad-tool? (s/N)"
@@ -1725,7 +1736,7 @@ show_main_menu() {
                 [1-9]|[1-9][0-9])
                     if (( c >= 1 && c <= ${#GAMES[@]} )); then
                         show_game_menu "${GAMES[$((c-1))]}"
-                        sleep 1
+                        loading_dots 1
                         scan_games
                         filter_games
                     else
@@ -1782,7 +1793,7 @@ main() {
             $DEBUG && log_debug "OK    iniciando steam headless" || true
             if $DEBUG; then $STEAM_CMD -no-browser -silent &
             else $STEAM_CMD -no-browser -silent &>/dev/null & fi
-            sleep 2
+            loading_dots 2
         else
             echo -e "  ${AMARELO}[INFO]${NC} Steam não encontrado"
             $DEBUG && log_debug "FALHA steam binário não encontrado" || true
