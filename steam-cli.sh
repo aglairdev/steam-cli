@@ -635,7 +635,7 @@ find_game_exe() {
             uninstall*|unins*|*redist*|vcredist*|dxwebsetup*|dotnet*|*setup*) continue ;;
         esac
         exes+=("$e")
-    done < <(find "$d" -maxdepth 2 -name '*.exe' -type f -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 4 -name '*.exe' -type f -print0 2>/dev/null)
     $DEBUG && log_debug "EXE   ${#exes[@]} executáveis .exe encontrados em $i" || true
     case ${#exes[@]} in
         0) $DEBUG && log_debug "FALHA nenhum .exe encontrado para $i"; return 1 ;;
@@ -661,7 +661,7 @@ find_linux_exe() {
     local il="${i,,}" elfs=()
     while IFS= read -r -d '' f; do
         file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$f")
-    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
     $DEBUG && log_debug "LIN   ${#elfs[@]} ELF encontrados em $i" || true
 
     local candidate=""
@@ -1067,7 +1067,7 @@ launch_native() {
             chmod +x "$f" 2>/dev/null || true
             altered=true
         fi
-    done < <(find "$d" -maxdepth 2 -type f \( -executable -o -name '*launcher*' \) -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 4 -type f \( -executable -o -name '*launcher*' \) -print0 2>/dev/null)
     while IFS= read -r -d '' f; do
         if file -b "$f" 2>/dev/null | grep -qi "ELF.*executable"; then
             if [[ ! -x "$f" ]]; then
@@ -1075,7 +1075,7 @@ launch_native() {
                 altered=true
             fi
         fi
-    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+    done < <(find "$d" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
     local libdir="$d/lib"
     if [[ -d "$libdir" ]] && [[ -n "$(find "$libdir" -type f ! -perm -o+w -print -quit 2>/dev/null)" ]]; then
         find "$libdir" -type f ! -perm -o+w -exec chmod +wx {} \; 2>/dev/null || true
