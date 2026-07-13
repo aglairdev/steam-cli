@@ -355,7 +355,7 @@ LIBRARY_VISIBLE=0
 _library_visible_count() {
     local term_height visible
     term_height=$(get_term_height)
-    visible=$(( term_height - $(chrome_lines_scrollable) ))
+    visible=$(( term_height - $(chrome_lines_scrollable) - 1 ))
     (( visible < 3 )) && visible=3
     (( visible > 14 )) && visible=14
     echo "$visible"
@@ -364,29 +364,60 @@ _library_visible_count() {
 show_library_menu() {
     if [[ ${#GAMES[@]} -eq 0 ]]; then return; fi
 
-    _draw_library_menu() {
-        local sel="$1" allow_back="$2"
-        LIBRARY_VISIBLE=$MENU_VISIBLE
+    local allow_back=true search_mode=false search_query="" sel=0 window_start=0 LIBRARY_DONE=false
+    local -a FILTERED_INDICES=()
 
+    _library_filter_indices() {
+        local query="${1,,}" idx name
+        FILTERED_INDICES=()
+        for (( idx=0; idx<${#GAMES[@]}; idx++ )); do
+            IFS='|' read -r _ name _ _ _ _ _ <<< "${GAMES[$idx]}"
+            if [[ -z "$query" ]] || [[ "${name,,}" == *"$query"* ]]; then
+                FILTERED_INDICES+=("$idx")
+            fi
+        done
+    }
+    _library_filter_indices ""
+
+    _library_open_selected() {
+        local total=${#FILTERED_INDICES[@]}
+        (( total == 0 )) && return
+        local chosen_idx="${FILTERED_INDICES[$sel]}"
+        show_game_menu "${GAMES[$chosen_idx]}"
+        scan_games || true
+        filter_games || true
+        if [[ ${#GAMES[@]} -eq 0 ]]; then 
+            LIBRARY_DONE=true
+            return
+        fi
+        _library_filter_indices "$search_query"
+        local new_total=${#FILTERED_INDICES[@]}
+        (( sel >= new_total )) && sel=$(( new_total - 1 ))
+        (( sel < 0 )) && sel=0
+        return 0
+    }
+
+    _draw_library_menu() {
         render_logo
         box_top
         box_mid "Biblioteca"
-        local total=${#GAMES[@]}
-        local start=$MENU_WINDOW_START
+        local total=${#FILTERED_INDICES[@]}
+        local start=$window_start
         if (( start > 0 )); then
             box_row "  ${CINZA}▲ mais acima${NC}"
         else
             box_row_blank
         fi
-        local i idx game appid name installdir library native mapping icon platform display_name
+        local i list_idx real_idx game appid name installdir library native mapping icon platform display_name
         local right right_width name_max left left_padded line
         for (( i=0; i<LIBRARY_VISIBLE; i++ )); do
-            idx=$(( start + i ))
-            if (( idx >= total )); then
+            list_idx=$(( start + i ))
+            if (( list_idx >= total )); then
                 box_row_blank
                 continue
             fi
-            game="${GAMES[$idx]}"
+            real_idx="${FILTERED_INDICES[$list_idx]}"
+            game="${GAMES[$real_idx]}"
             IFS='|' read -r appid name installdir library platform _ <<< "$game"
             IFS='|' read -r native mapping <<< "$(controller_status "$appid")"
             if [[ "$native" == "yes" ]] || { [[ -n "$mapping" ]] && is_valid_mapping "$mapping"; }; then
@@ -403,28 +434,104 @@ show_library_menu() {
             left="  ${display_name}"
             left_padded=$(pad_to_width "$left" $((BOXW - right_width)))
             line="${left_padded}${right}"
-            if (( idx == sel )); then box_row_selected "$line"; else box_row "$line"; fi
+            if (( list_idx == sel )); then box_row_selected "$line"; else box_row "$line"; fi
         done
-        if (( start + LIBRARY_VISIBLE < total )); then
+        if (( total == 0 )); then
+            box_row "  ${CINZA}nenhum resultado${NC}"
+        elif (( start + LIBRARY_VISIBLE < total )); then
             box_row "  ${CINZA}▼ mais abaixo${NC}"
         else
             box_row_blank
         fi
         box_bottom
         render_footer "$allow_back"
+        box_row_search "$search_query" "$search_mode"
     }
 
     while true; do
-        run_menu "${#GAMES[@]}" _draw_library_menu true _library_visible_count
-        case "$MENU_RESULT" in
-            BACK) return ;;
-            *)
-                show_game_menu "${GAMES[$MENU_RESULT]}"
-                scan_games
-                filter_games
-                [[ ${#GAMES[@]} -eq 0 ]] && return
-                ;;
-        esac
+        local dirty=true
+
+        while true; do
+            if $dirty; then
+                wait_for_resize
+                RESIZED=0
+                box_init
+                LIBRARY_VISIBLE=$(_library_visible_count)
+                FRAME_LINES=0
+                local content
+                content=$(_draw_library_menu)
+                render_static_screen "$content"
+                dirty=false
+            fi
+
+            local total=${#FILTERED_INDICES[@]} action
+
+            if $search_mode; then
+                action=$(_read_library_search_key)
+                case "$action" in
+                    RESIZE) dirty=true ;;
+                    IDLE|IGNORE) : ;;
+                    UP)   (( total > 0 )) && { sel=$(( (sel - 1 + total) % total )); dirty=true; } ;;
+                    DOWN) (( total > 0 )) && { sel=$(( (sel + 1) % total )); dirty=true; } ;;
+                    LEFT)
+                        search_mode=false
+                        search_query=""
+                        _library_filter_indices ""
+                        sel=0
+                        dirty=true ;;
+                    BACKSPACE)
+                        search_query="${search_query%?}"
+                        _library_filter_indices "$search_query"
+                        sel=0
+                        dirty=true ;;
+                    CHAR:/)
+                        search_mode=false
+                        dirty=true ;;
+                    CHAR:*)
+                        local new_char="${action#CHAR:}"
+                        if _is_safe_char "$new_char"; then
+                            search_query+="$new_char"
+                            _library_filter_indices "$search_query"
+                            sel=0
+                            dirty=true
+                        fi ;;
+                    ENTER) _library_open_selected; $LIBRARY_DONE && return; dirty=true ;;
+                esac
+            else
+                action=$(read_key)
+                case "$action" in
+                    RESIZE) dirty=true ;;
+                    IDLE) : ;;
+                    UP)   (( total > 0 )) && { sel=$(( (sel - 1 + total) % total )); dirty=true; } ;;
+                    DOWN) (( total > 0 )) && { sel=$(( (sel + 1) % total )); dirty=true; } ;;
+                    LEFT) return ;;
+                    CHAR:/)
+                        search_mode=true
+                        dirty=true ;;
+                    CHAR:q|CHAR:Q)
+                        prompt_exit_steam
+                        clear
+                        tput cnorm 2>/dev/null || true
+                        exit 0 ;;
+                    ENTER|RIGHT) 
+                    _library_open_selected
+                    while IFS= read -rsn1 -t 0.001 _ 2>/dev/null; do :; done
+                    $LIBRARY_DONE && return
+                    dirty=true 
+                    ;;
+                esac
+            fi
+
+            total=${#FILTERED_INDICES[@]}
+            (( total > 0 && sel >= total )) && sel=$(( total - 1 ))
+            (( sel < 0 )) && sel=0
+            if (( total > 0 && LIBRARY_VISIBLE > 0 && total > LIBRARY_VISIBLE )); then
+                (( sel < window_start && dirty )) && window_start=$sel
+                (( sel >= window_start + LIBRARY_VISIBLE && dirty )) && window_start=$(( sel - LIBRARY_VISIBLE + 1 ))
+            else
+                window_start=0
+            fi
+        done
     done
 }
 

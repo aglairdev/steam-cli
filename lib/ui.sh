@@ -404,6 +404,51 @@ box_read_input() {
 }
 
 # ===============
+# BUSCA (BIBLIOTECA)
+# ===============
+
+box_row_search() {
+    local query="$1" active="$2" display color="$CINZA"
+    if [[ "$active" == true ]]; then
+        color="$AZUL"
+        display="${query}█"
+    elif [[ -n "$query" ]]; then
+        display="$query"
+    else
+        display=$(printf '_%.0s' $(seq 1 12))
+    fi
+    print_centered "${color}[/] ${NC}${display}"
+}
+
+_read_library_search_key() {
+    local key rest
+    if ! IFS= read -rsn1 -t "$RESIZE_POLL_INTERVAL" key; then
+        if (( RESIZED )); then
+            echo "RESIZE"
+        else
+            echo "IDLE"
+        fi
+        return
+    fi
+    if [[ $key == $'\x1b' ]]; then
+        IFS= read -rsn2 -t 0.05 rest 2>/dev/null || true
+        key+="$rest"
+        case "$key" in
+            $'\x1b[A') echo "UP" ;;
+            $'\x1b[B') echo "DOWN" ;;
+            $'\x1b'|$'\x1b[D') echo "LEFT" ;;
+            *) echo "IGNORE" ;;
+        esac
+        return
+    fi
+    case "$key" in
+        ""|$'\x0a'|$'\x0d') echo "ENTER" ;;
+        $'\x7f'|$'\x08') echo "BACKSPACE" ;;
+        *) echo "CHAR:$key" ;;
+    esac
+}
+
+# ===============
 # CONFIRMAÇÃO
 # ===============
 
