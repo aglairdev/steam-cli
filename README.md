@@ -1,27 +1,26 @@
 <div align="center">
 
-[![steam-tui](https://img.shields.io/badge/STEAM--CLI-3a6f8f?style=for-the-badge)](https://github.com/aglairdev/steam-tui)
-</div>
+<a href="https://github.com/aglairdev/steam-tui">
+  <img width="500" height="100" alt="logotipo steam-tui"
+       src="https://github.com/user-attachments/assets/af6464f6-6fd5-45d5-a047-d79983504040" />
+</a>
 
-## Que isso?
+<hr>
 
-Gerenciador de jogos Steam no terminal, com lançamento nativo e via Proton.
+[![Release](https://img.shields.io/github/v/release/aglairdev/steam-tui?style=for-the-badge&color=94baf2&label=release)](https://github.com/aglairdev/steam-tui/releases)
+[![OS](https://img.shields.io/badge/OS-Linux-94baf2?style=for-the-badge&logo=linux&logoColor=white)](#requisitos)
+[![License](https://img.shields.io/github/license/aglairdev/steam-tui?style=for-the-badge&color=94baf2)](LICENSE)
+[![Bash](https://img.shields.io/badge/Bash-94baf2?style=for-the-badge&logo=gnubash&logoColor=black)](#)
 
-![Bash](https://img.shields.io/badge/Bash-333333?style=flat-square&logo=gnubash&logoColor=white)
-
-<div align="center">
-
-| Menu | Nativo |
-|:---:|:---:|
-| ![menu demo](https://github.com/user-attachments/assets/8b526ca5-fa35-4e38-922d-d5774553089c) | ![nativo demo](https://github.com/user-attachments/assets/4f4dfc66-311a-4c8b-8069-b2041a3929e0) |
-| Proton | Parâmetros |
-| ![proton demo](https://github.com/user-attachments/assets/7640d4aa-51db-4f5a-8bd5-4d983714783e) | ![params demo](https://github.com/user-attachments/assets/38b7e2f0-c89c-489a-aa2f-e8ef7c4236cb) |
+Gerenciador de jogos steam no terminal.
 
 </div>
 
 ## Instalação
 
-**Configurar path**
+**Requisitos:** `steam` · `bash` · `curl` · `nerdfonts`
+
+**1. Adicionar path**
 
 *bash/zsh* (`~/.bashrc` ou `~/.zshrc`):
 
@@ -35,24 +34,22 @@ export PATH="$HOME/.local/bin:$PATH"
 set -Ux PATH $HOME/.local/bin $PATH
 ```
 
-*Reinicie o terminal*
+Reinicie o terminal após configurar o path.
 
-**Instalação**
+**2. Instalar**
 
 ```bash
 curl -fsSL steamcli.pages.dev/install | bash
 ```
 
 > [!CAUTION]
-> Jogos Windows exigem **Proton instalado** ~ o script detecta e usa o primeiro Proton que encontrar.
+> Jogos windows exigem **proton instalado**. O script detecta e usa o primeiro proton encontrado no sistema (ou o configurado em `~/.config/steam-tui/proton.conf`).
 
 > [!WARNING]
-> Você precisa abrir a Steam GUI **pelo menos uma vez** para definir bibliotecas alternativas (se não quiser usar a padrão `~/.steam/steam` e caso escolha usar o manifest para baixar jogos).
+> Abra a steam GUI **pelo menos uma vez** antes de usar, para que bibliotecas alternativas sejam registradas (necessário se você não usa apenas a biblioteca padrão `~/.steam/steam`, ou se for usar o *Manifest* para baixar jogos).
 
 > [!NOTE]
-> A opção de baixar jogos via [Manifest](https://github.com/aglairdev/Manifest) é opcional; sem ela o script gerencia apenas jogos já instalados.
-
-**Requisitos:** `steam` `bash` `curl`
+> O download de jogos via [Manifest](https://github.com/aglairdev/manifest) é opcional ~ sem ele, o steam-tui gerencia normalmente os jogos já instalados pela interface gráfica.
 
 ## Uso
 
@@ -60,38 +57,59 @@ curl -fsSL steamcli.pages.dev/install | bash
 steam-tui
 ```
 
-### Flags
-
 | Flag | Descrição |
-|------|-----------|
-| `-d` | modo debug (`~/.config/steam-tui/debug.log`) |
-| `-v` | exibe versão |
+|:---:|---|
+| `-d` | modo debug, grava log completo em `~/.config/steam-tui/debug.log` |
+| `-v` | exibe a versão instalada |
 | `-h` | mostra ajuda |
 
 ## Funcionalidades
 
-- **Lista jogos instalados** ordenados por último jogado
-- **Inicia jogos nativos Linux** ~ corrige permissões automaticamente e usa Steam Runtime quando necessário
-- **Inicia jogos Windows via Proton** ~ detecta o primeiro Proton disponível no sistema
-- **Parâmetros por jogo** ~ define flags de lançamento individuais (ex.: `-opengl`, `-windowed`)
-- **Proton configurável** ~ define um Proton padrão global ou um específico por AppID em `~/.config/steam-tui/proton.conf`
-- **Remove jogos** diretamente pelo menu
-- **Download opcional** via [Manifest](https://github.com/aglairdev/Manifest) ~ baixa manifests Steam sem abrir a GUI
+**Biblioteca**
+- Lista jogos instalados, ordenados por último jogado
 
-## Configuração
+**Lançamento**
+- Exibe total de horas jogadas (atualmente sem compatibilidade em flatpak/snap)
+- Nativo linux ~ corrige permissões e recorre ao steam runtime quando necessário
+- Windows via proton ~ detecta o primeiro proton disponível, com fallback e configuração por AppID
+- Parâmetros de lançamento por jogo 
 
-| Arquivo | Conteúdo |
-|---|---|
-| `~/.config/steam-tui/proton.conf` | Proton global e por AppID |
-| `~/.config/steam-tui/params/<appid>` | parâmetros de lançamento por jogo |
-| `~/.config/steam-tui/debug.log` | logs do modo debug |
+**Controle**
+- O usuário define suporte nativo e/ou mapeamento SDL manualmente
+- Mapeamento global ou por jogo
+- Integração com [gamepad-tool](https://github.com/General-Arcade/sdl2-gamepad-tool) ~ download, atualização e remoção pelo próprio menu
+
+**Dependências**
+- Checagem e instalação de `mangohud`, `gamemode` e bibliotecas 32-bit
+- Detecção automática de distro (Arch, Fedora e Debian)
+
+**Gerenciamento**
+- Remove jogos diretamente pelo menu
+- Download opcional de jogos via [Manifest](https://github.com/aglairdev/manifest)
+
+## Estrutura
+
+```
+~/.config/steam-tui/
+├── proton.conf              # proton global e por AppID
+├── debug.log                # logs do modo debug
+├── params/
+│   └── <appid>              # parâmetros de lançamento por jogo
+├── controle/
+│   ├── global.conf          # mapeamento de controle global
+│   ├── jogos/
+│   │   └── <appid>          # suporte nativo / mapeamento por jogo
+│   └── gamepad-tool/        # binário e versão do gamepad-tool
+└── deps/
+    └── deps.conf            # pacotes de dependências por distro
+```
 
 ## Atualização
 
-O script verifica atualizações ao iniciar:
+O script verifica novas releases automaticamente ao iniciar:
 
 ```
-  ꕤ nova versão: v1.0.1 (atual: v1.0.0)
+  ꕤ nova versão: v2.0.0 (atual: v1.0.3)
 -----------------------------------------------
   Atualizar? (s/N):
 ```
@@ -107,10 +125,8 @@ rm -r ~/.config/steam-tui
 
 ## Créditos
 
-- [Manifest](https://github.com/aglairdev/Manifest) ~ CLI para baixar manifests Steam
-
-## Licença
-
-[MIT](https://github.com/aglairdev/steam-tui/blob/main/LICENSE)
+- [manifest](https://github.com/aglairdev/Manifest) ~ TUI para baixar manifests
+- [gamepad-tool](https://github.com/General-Arcade/sdl2-gamepad-tool) ~ geração de mapeamentos de controle
+- [nerd fonts](https://www.nerdfonts.com/) ~ ícones do menu
 
 <p align="center">ꕤ AGL</p>

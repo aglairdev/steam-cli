@@ -15,7 +15,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
 source "$SCRIPT_DIR/lib/core.sh"
+source "$SCRIPT_DIR/lib/responsiveness.sh"
 source "$SCRIPT_DIR/lib/ui.sh"
+source "$SCRIPT_DIR/lib/logo.sh"
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/deps.sh"
 source "$SCRIPT_DIR/lib/steam.sh"
@@ -28,9 +30,11 @@ source "$SCRIPT_DIR/lib/menus.sh"
 # ===============
 
 main() {
+    stty -echo 2>/dev/null || true
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -d|--debug) DEBUG=true ;;
+            -d|--debug) DEBUG=true; DEBUG_MODE=true ;;
             -v|--version) echo -e "  ${AGL} steam-tui v${VERSION}"; exit 0 ;;
             -h|--help)
                 echo "uso: ./steam-tui.sh [-d] [-v] [-h]"
@@ -43,13 +47,12 @@ main() {
 
     if $DEBUG; then
         DEBUG_LOG="$CONFIG_DIR/debug.log"
-        local ts
-        ts=$(date '+%Y-%m-%d %H:%M:%S')
-        if [[ ! -f "$DEBUG_LOG" ]]; then
-            echo "--" > "$DEBUG_LOG"
-        fi
-        echo "[$ts] === INÍCIO SESSAO ===" >> "$DEBUG_LOG"
-        echo "[$ts] steam-tui v$VERSION" >> "$DEBUG_LOG"
+        mkdir -p "$CONFIG_DIR"
+        [[ -f "$DEBUG_LOG" ]] || echo "--" > "$DEBUG_LOG"
+        local timestamp
+        timestamp=$(date '+%d-%m-%Y %H:%M:%S')
+        echo "[$timestamp] === INÍCIO SESSAO ===" >> "$DEBUG_LOG"
+        log_debug "[OK] modo debug iniciado (steam-tui v${VERSION})"
     fi
 
     setup_config
@@ -58,23 +61,27 @@ main() {
     scan_games
     filter_games
 
-    local debug_tag=""
-    $DEBUG && debug_tag="[DEBUG] " || true
+    box_init
 
     if ! pgrep -x steam >/dev/null 2>&1; then
-        echo -e "  ${BOLINHO} ${debug_tag}steam-tui v${VERSION} ${AGL}"
         if command -v steam &>/dev/null; then
-            echo -e "  ${CINZA}[INFO] iniciando steam headless ..${NC}"
-            $DEBUG && log_debug "OK    iniciando steam headless" || true
+            $DEBUG && log_debug "[OK] steam iniciado em modo headless" || true
             if $DEBUG; then $STEAM_CMD -no-browser -silent &
             else $STEAM_CMD -no-browser -silent &>/dev/null & fi
-            loading_dots 2
+            loading_dots 2 "Iniciando Steam"
         else
-            echo -e "  ${AMARELO}[INFO]${NC} Steam não encontrado"
-            $DEBUG && log_debug "FALHA steam binário não encontrado" || true
+            _draw_steam_notice() {
+                box_init
+                render_logo
+                box_top
+                box_mid "${AGL} steam-tui"
+                box_row "  Steam não encontrado" "  ${AMARELO}Steam não encontrado${NC}"
+                box_bottom
+            }
+            render_static_screen "$(_draw_steam_notice)"
+            sleep 1.2
+            $DEBUG && log_debug "[ERROR] steam não encontrado: binário ausente" || true
         fi
-    else
-        echo -e "  ${BOLINHO} ${debug_tag}steam-tui v${VERSION} ${AGL}"
     fi
 
     show_main_menu "$@"

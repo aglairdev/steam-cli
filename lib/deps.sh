@@ -23,9 +23,9 @@ normalize_distro_id() {
 
 get_pkg() {
     local name="$1"
-    local norm
-    norm=$(normalize_distro_id)
-    local var="${name}_${norm}"
+    local normalized
+    normalized=$(normalize_distro_id)
+    local var="${name}_${normalized}"
     if [[ -n "${!var+x}" ]]; then
         echo "${!var}"
     fi
@@ -59,7 +59,7 @@ get_install_cmd() {
     case "$DISTRO_ID" in
         arch|manjaro|endeavouros) echo "sudo pacman -S" ;;
         fedora|rhel|centos)       echo "sudo dnf install" ;;
-        ubuntu|debian|linuxmint)  echo "sudo apt install" ;;
+        ubuntu|debian|linuxmint)  echo "sudo apt-get install" ;;
     esac
 }
 
@@ -72,23 +72,38 @@ dep_status_icon() {
     fi
 }
 
+# ===============
+# INSTALAÇÃO
+# ===============
+
 install_dep() {
-    local pkgs="$1"
-    local cmd
+    local pkgs="$1" label="${2:-$1}" cmd
     cmd=$(get_install_cmd)
-    echo ""
-    echo -e "  ${CINZA}Comando:${NC} $cmd $pkgs"
-    read -p "  Executar? (s/N): " resp
-    case "${resp,,}" in
-        s|sim)
-            if $cmd $pkgs; then
-                echo -e "  ${CHECK} concluído"
-            else
-                echo -e "  ${XIS} falha na instalação"
-            fi
-            ;;
-    esac
-    loading_dots 1
+
+    if confirm_dialog "Instalar" "Executar: ${cmd} ${pkgs}?"; then
+        stty echo 2>/dev/null || true
+        tput cnorm 2>/dev/null || true
+        clear
+
+        $cmd $pkgs
+        local exit_code=$?
+
+        echo ""
+        if [[ "$exit_code" == "0" ]]; then
+            echo -e "  ${CHECK} ${label} instalado"
+            echo -e "  Voltando para steam-tui..."
+            $DEBUG && log_debug "[OK] ${label} instalado" || true
+        else
+            echo -e "  ${XIS} falha ao instalar ${label}"
+            echo -e "  Voltando para steam-tui..."
+            $DEBUG && log_debug "[ERROR] falha ao instalar ${label}" || true
+        fi
+
+        sleep 1.5
+
+        tput civis 2>/dev/null || true
+        stty -echo 2>/dev/null || true
+    fi
 }
 
 check_deps32_status() {
@@ -111,76 +126,44 @@ check_deps32_status() {
 show_deps_menu() {
     detect_distro
 
-    while true; do
+    _draw_deps_menu() {
+        local sel="$1" allow_back="$2"
         local pkg_mangohud pkg_gamemode pkg_deps32
         pkg_mangohud=$(get_pkg "mangohud")
         pkg_gamemode=$(get_pkg "gamemode")
         pkg_deps32=$(get_pkg "deps32")
 
-        local s_m s_g s_d
-        s_m=$(dep_status_icon "$pkg_mangohud")
-        s_g=$(dep_status_icon "$pkg_gamemode")
-        s_d=$(dep_status_icon "$pkg_deps32")
+        local status_mangohud status_gamemode status_deps32
+        status_mangohud=$(dep_status_icon "$pkg_mangohud")
+        status_gamemode=$(dep_status_icon "$pkg_gamemode")
+        status_deps32=$(dep_status_icon "$pkg_deps32")
 
-        clear
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
+        render_logo
         box_top
         box_mid "Dependências"
-        box_row "  · mangohud  · gamemode  · d32" "  ${s_m} mangohud  ${s_g} gamemode  ${s_d} d32"
-        box_row ""
-        box_row "  [1]  mangohud" "  [${AMARELO}1${NC}]  mangohud"
-        box_row "  [2]  gamemode" "  [${AMARELO}2${NC}]  gamemode"
-        box_row "  [3]  deps 32-bit" "  [${AMARELO}3${NC}]  deps 32-bit"
-        box_row "  [4]  instalar todas" "  [${AMARELO}4${NC}]  instalar todas"
-        box_mid "Sair"
-        box_row "  [0]  Voltar"
+        box_row "  · mangohud  · gamemode  · d32" "  ${status_mangohud} mangohud  ${status_gamemode} gamemode  ${status_deps32} d32"
+        box_row_blank
+        box_items "$sel" "mangohud" "gamemode" "deps 32-bit" "instalar todas"
         box_bottom
-        debug_flush
-        echo ""
-        read -p " > " c
+        render_footer "$allow_back"
+    }
 
-        case "$c" in
-            1) install_dep "$pkg_mangohud" ;;
-            2) install_dep "$pkg_gamemode" ;;
-            3) install_dep "$pkg_deps32" ;;
-            4)
-                install_dep "$pkg_mangohud"
-                install_dep "$pkg_gamemode"
-                install_dep "$pkg_deps32"
-                ;;
-            0) return ;;
-            *) invalid_option ;;
-        esac
-    done
-}
-
-show_config_menu() {
     while true; do
-        clear
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
-        box_top
-        box_mid "Config"
-        box_row "  [1]  Controle" "  [${AMARELO}1${NC}]  Controle"
-        box_row "  [2]  Dependências" "  [${AMARELO}2${NC}]  Dependências"
-        box_mid "Sair"
-        box_row "  [0]  Voltar"
-        box_bottom
-        debug_flush
-        echo ""
-        read -p " > " c
-
-        case "$c" in
-            1) show_controllers_menu ;;
-            2) show_deps_menu ;;
-            0) return ;;
-            *) invalid_option ;;
+        run_menu 4 _draw_deps_menu true
+        local pkg_mangohud pkg_gamemode pkg_deps32
+        pkg_mangohud=$(get_pkg "mangohud")
+        pkg_gamemode=$(get_pkg "gamemode")
+        pkg_deps32=$(get_pkg "deps32")
+        case "$MENU_RESULT" in
+            BACK) return ;;
+            0) install_dep "$pkg_mangohud" "mangohud" ;;
+            1) install_dep "$pkg_gamemode" "gamemode" ;;
+            2) install_dep "$pkg_deps32" "deps 32-bit" ;;
+            3)
+                install_dep "$pkg_mangohud" "mangohud"
+                install_dep "$pkg_gamemode" "gamemode"
+                install_dep "$pkg_deps32" "deps 32-bit"
+                ;;
         esac
     done
 }
-

@@ -1,6 +1,10 @@
 #
 # © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 #
+# ===============
+# CONFIGURAÇÃO
+# ===============
+
 VERSION="1.0.3"
 AGL="ꕤ"
 
@@ -14,10 +18,10 @@ REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/steam-tui.s
 TOOLS_APPIDS=(1070560 1493710 1628350 2180100 228980 4183110)
 EXTERNAL_PROGRAMS=("gamemoderun" "mangohud")
 
-CONTROLE_DIR="$CONFIG_DIR/controle"
-CONTROLLERS_DIR="$CONTROLE_DIR/jogos"
-CONTROLLER_GLOBAL_CONF="$CONTROLE_DIR/global.conf"
-GAMEPAD_TOOL_DIR="$CONTROLE_DIR/gamepad-tool"
+CONTROLLER_DIR="$CONFIG_DIR/controle"
+CONTROLLERS_DIR="$CONTROLLER_DIR/jogos"
+CONTROLLER_GLOBAL_CONF="$CONTROLLER_DIR/global.conf"
+GAMEPAD_TOOL_DIR="$CONTROLLER_DIR/gamepad-tool"
 GAMEPAD_TOOL_BIN="$GAMEPAD_TOOL_DIR/gamepad-tool"
 GAMEPAD_TOOL_VERSION_FILE="$GAMEPAD_TOOL_DIR/.version"
 GAMEPAD_TOOL_REPO_API="https://api.github.com/repos/General-Arcade/sdl2-gamepad-tool/releases/latest"
@@ -27,8 +31,13 @@ DEPS_DIR="$CONFIG_DIR/deps"
 DEPS_CONF="$DEPS_DIR/deps.conf"
 DISTRO_ID=""
 
+# ===============
+# CORES
+# ===============
+
 VERDE='\033[38;2;120;170;120m'
 VERMELHO='\033[38;2;190;100;100m'
+VERMELHO_CLARO='\033[38;2;255;150;150m'
 AMARELO='\033[38;2;200;180;100m'
 AZUL='\033[38;2;100;150;200m'
 CINZA='\033[38;2;150;150;150m'
@@ -52,43 +61,15 @@ ICON_LINUX=$'\uebc6'
 ICON_WINDOWS=$'\ue8e5'
 ICON_TIME=$'\uf017'
 
-DEBUG_BUFFER=()
+# ===============
+# LOG DEBUG
+# ===============
 
 log_debug() {
     local msg="$1"
-    local ts
-    ts=$(date '+%Y-%m-%d %H:%M:%S')
-    DEBUG_BUFFER+=("$msg")
-    echo "[$ts] $msg" >> "$DEBUG_LOG"
-}
-
-debug_flush() {
-    $DEBUG || { DEBUG_BUFFER=(); return 0; }
-    local m
-    for m in "${DEBUG_BUFFER[@]}"; do
-        echo -e "  ${CINZA}[DEBUG] ${m}${NC}"
-    done
-    DEBUG_BUFFER=()
-}
-
-divider() {
-    echo -e "${AZUL}-----------------------------------------------${NC}"
-}
-
-loading_dots() {
-    local s=$1 i=0
-    local frames=("." ".." "...")
-    while (( i < s * 3 )); do
-        printf "\r  ${CINZA}%s${NC}" "${frames[$((i % 3))]}"
-        sleep 0.33
-        i=$((i + 1))
-    done
-    printf "\r                    \r"
-}
-
-invalid_option() {
-    echo -e "  ${VERMELHO}Comando não disponível.${NC}"
-    read -n1 -s -r
+    local timestamp
+    timestamp=$(date '+%d-%m-%Y %H:%M:%S')
+    echo "[$timestamp] $msg" >> "$DEBUG_LOG"
 }
 
 check_external_program() {
@@ -118,4 +99,3 @@ show_params_programs_status() {
         fi
     done
 }
-

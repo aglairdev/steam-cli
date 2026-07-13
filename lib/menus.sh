@@ -7,80 +7,118 @@
 
 show_game_menu() {
     local game="$1"
-    IFS='|' read -r a n i l _ _ _ <<< "$game"
-    $DEBUG && log_debug "OK    menu: $n (appid $a)" || true
+    IFS='|' read -r appid name installdir library _ _ _ <<< "$game"
+    $DEBUG && log_debug "menu: $name (appid $appid)" || true
 
-    local linux_exe="" win_exe="" hn=false hp=false
-    linux_exe=$(find_linux_exe "$i" "$l" 2>/dev/null) || true
+    local linux_exe="" win_exe="" has_native=false has_proton=false
+    linux_exe=$(find_linux_exe "$installdir" "$library" 2>/dev/null) || true
     if [[ -n "$linux_exe" ]]; then
-        hn=true
+        has_native=true
     else
-        win_exe=$(find_game_exe "$i" "$l" 2>/dev/null) || true
-        get_proton "$a" &>/dev/null && hp=true || hp=false
+        win_exe=$(find_game_exe "$installdir" "$library" 2>/dev/null) || true
+        local proton_bin
+        proton_bin=$(get_proton "$appid") || true
+        if [[ -n "$proton_bin" ]]; then
+            has_proton=true
+            $DEBUG && log_debug "[OK] proton encontrado: $proton_bin" || true
+        else
+            $DEBUG && log_debug "[ERROR] proton não encontrado" || true
+        fi
     fi
 
-    while true; do
-        local pt
-        pt=$(get_playtime "$a")
-        clear
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
-        box_top
-        box_mid "$n"
-        local pt_fmt
-        pt_fmt=$(format_playtime "$pt")
-        if [[ $hn == true ]] || [[ $hp == true ]]; then
-            box_row "  [1]  Jogar ${ICON_TIME} ${pt_fmt}" "  [${VERDE}1${NC}]  Jogar ${ICON_TIME} ${pt_fmt}"
-        else
-            box_row "  [!]  Jogar (Proton não configurado)" "  [${VERMELHO}!${NC}]  Jogar (Proton não configurado)"
-        fi
-        box_row "  [2]  Controle" "  [${AMARELO}2${NC}]  Controle"
-        box_row "  [3]  Parâmetros" "  [${AMARELO}3${NC}]  Parâmetros"
-        box_row "  [4]  Excluir" "  [${VERMELHO}4${NC}]  Excluir"
-        box_mid "Sair"
-        box_row "  [0]  Voltar"
-        box_bottom
-        debug_flush
-        echo ""
-        read -p " > " c
+    if $DEBUG; then
+        local current_params
+        current_params=$(load_params "$appid") || true
+        log_debug "[OK] parâmetro atual: ${current_params}"
 
-        if [[ "$c" == "1" ]]; then
-            if [[ $hn == true ]]; then
-                launch_native "$a" "$n" "$linux_exe"
-            elif [[ $hp == true ]]; then
-                launch_proton "$a" "$n" "$win_exe"
-            fi
-            read -p "  Enter para continuar..."
-        elif [[ "$c" == "2" ]]; then
-            show_game_controller_menu "$a" "$n"
-        elif [[ "$c" == "3" ]]; then
-            edit_params "$a" "$n"
-        elif [[ "$c" == "4" ]]; then
-            echo ""
-            echo -e "  Excluir ${NEGRITO}${n}${NC}? (s/N)"
-            read -p " > " resp
-            case "${resp,,}" in
-                s|sim)
-                    $DEBUG && log_debug "OK    removendo jogo: $n (appid $a)" || true
-                    echo -e "  ${CINZA}[INFO] removendo ${n} ..${NC}"
-                    rm -rf "$l/steamapps/common/$i" 2>/dev/null || true
-                    rm -f "$l/steamapps/appmanifest_${a}.acf" 2>/dev/null || true
-                    rm -rf "$l/steamapps/compatdata/$a" 2>/dev/null || true
-                    echo -e "  ${CHECK} ${n} removido"
-                    local ng=()
-                    for g in "${GAMES[@]}"; do
-                        IFS='|' read -r ga _ _ _ _ <<< "$g"
-                        [[ "$ga" != "$a" ]] && ng+=("$g")
-                    done
-                    GAMES=("${ng[@]}"); sleep 1; return ; true ;;
-            esac
-        elif [[ "$c" == "0" ]]; then
-            return
+        local native mapping controller_support
+        IFS='|' read -r native mapping <<< "$(controller_status "$appid")"
+        if [[ "$native" == "yes" ]] || { [[ -n "$mapping" ]] && is_valid_mapping "$mapping"; }; then
+            controller_support="on"
         else
-            invalid_option
+            controller_support="off"
         fi
+        log_debug "[OK] suporte a controle: $controller_support"
+    fi
+
+    local can_play=false
+    { [[ $has_native == true ]] || [[ $has_proton == true ]]; } && can_play=true
+
+    _draw_game_menu() {
+        local sel="$1" allow_back="$2"
+        local playtime playtime_fmt
+        playtime=$(get_playtime "$appid")
+        playtime_fmt=$(format_playtime "$playtime")
+        render_logo
+        box_top
+        box_mid "$name"
+        box_row_blank
+
+        local play_label right right_width left left_padded line
+        if $can_play; then
+            play_label="Jogar"
+            right="${ICON_TIME} ${playtime_fmt}  "
+        else
+            play_label="Jogar (Proton não configurado)"
+            right="  "
+        fi
+        right_width=$(display_width "$right")
+        left="  ${play_label}"
+        left_padded=$(pad_to_width "$left" $((BOXW - right_width)))
+        line="${left_padded}${right}"
+        if (( sel == 0 )); then box_row_selected "$line"; else box_row "$line"; fi
+
+        local items=("Controle" "Parâmetros" "Excluir")
+        local idx=1 item
+        for item in "${items[@]}"; do
+            local is_danger=false label="$item"
+            if [[ "$item" =~ $DANGER_ITEMS_REGEX ]]; then
+                is_danger=true; label="[${item}]"
+            fi
+            if (( idx == sel )); then
+                box_row_selected "  ${label}" "$is_danger"
+            elif $is_danger; then
+                box_row "  ${label}" "  ${VERMELHO_CLARO}${label}${NC}"
+            else
+                box_row "  ${item}"
+            fi
+            idx=$((idx+1))
+        done
+        box_bottom
+        render_footer "$allow_back"
+    }
+
+    while true; do
+        run_menu 4 _draw_game_menu true
+        case "$MENU_RESULT" in
+            BACK) return ;;
+            0)
+                if [[ $has_native == true ]]; then
+                    launch_native "$appid" "$name" "$linux_exe"
+                elif [[ $has_proton == true ]]; then
+                    launch_proton "$appid" "$name" "$win_exe"
+                fi
+                auto_return_delay 1.5
+                return ;;
+            1) show_game_controller_menu "$appid" "$name" ;;
+            2) edit_params "$appid" "$name" ;;
+            3)
+                if confirm_dialog "Excluir" "Excluir ${name}?"; then
+                    $DEBUG && log_debug "[OK] removendo jogo: $name (appid $appid)" || true
+                    rm -rf "$library/steamapps/common/$installdir" 2>/dev/null || true
+                    rm -f "$library/steamapps/appmanifest_${appid}.acf" 2>/dev/null || true
+                    rm -rf "$library/steamapps/compatdata/$appid" 2>/dev/null || true
+                    ui_log "${CHECK} ${name} removido"
+                    local remaining=()
+                    for game_entry in "${GAMES[@]}"; do
+                        IFS='|' read -r entry_appid _ _ _ _ <<< "$game_entry"
+                        [[ "$entry_appid" != "$appid" ]] && remaining+=("$game_entry")
+                    done
+                    GAMES=("${remaining[@]}")
+                    auto_return_delay 1.2
+                    return
+                fi ;;
+        esac
     done
 }
 
@@ -89,10 +127,12 @@ show_game_menu() {
 # ===============
 
 show_game_controller_menu() {
-    local a="$1" n="$2"
-    while true; do
+    local appid="$1" name="$2"
+
+    _draw_game_controller_menu() {
+        local sel="$1" allow_back="$2"
         local native="" mapping="" status_label status_icon
-        IFS='|' read -r native mapping <<< "$(controller_status "$a")"
+        IFS='|' read -r native mapping <<< "$(controller_status "$appid")"
         if [[ "$native" == "yes" ]]; then
             status_label="suporte nativo"; status_icon="$ICON_GAMEPAD"
         elif [[ -n "$mapping" ]] && is_valid_mapping "$mapping"; then
@@ -101,63 +141,63 @@ show_game_controller_menu() {
             status_label="teclado"; status_icon="$ICON_KEYBOARD"
         fi
 
-        clear
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
+        render_logo
         box_top
         box_mid "Controle"
-        box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
-        box_row "  Status: ${status_icon}" "  Status: ${NEGRITO}${status_icon}${NC}"
-        box_row ""
+        local name_display
+        name_display=$(truncate_name "$name" $((BOXW - 6)))
+        box_row "  ${name_display}" "  ${NEGRITO}${name_display}${NC}"
+        box_row "  Status: ${status_label} ${status_icon}"
+        box_row_blank
+        local items=()
         if [[ "$native" == "yes" ]]; then
-            box_row "  [1]  Desmarcar suporte nativo" "  [${VERMELHO}1${NC}]  Desmarcar suporte nativo"
+            items+=("Desmarcar suporte nativo")
         else
-            box_row "  [1]  Marcar suporte nativo" "  [${VERDE}1${NC}]  Marcar suporte nativo"
+            items+=("Marcar suporte nativo")
         fi
-        box_row "  [2]  Configurar mapeamento" "  [${AMARELO}2${NC}]  Configurar mapeamento"
-        box_row "  [3]  Resetar" "  [${VERMELHO}3${NC}]  Resetar"
-        box_mid "Sair"
-        box_row "  [0]  Voltar"
+        items+=("Configurar mapeamento" "Resetar")
+        box_items "$sel" "${items[@]}"
         box_bottom
-        debug_flush
-        echo ""
-        read -p " > " c
-        case "$c" in
-            1)
+        render_footer "$allow_back"
+    }
+
+    while true; do
+        run_menu 3 _draw_game_controller_menu true
+        [[ "$MENU_RESULT" == "BACK" ]] && return
+
+        local native="" mapping=""
+        IFS='|' read -r native mapping <<< "$(controller_status "$appid")"
+        case "$MENU_RESULT" in
+            0)
                 if [[ "$native" == "yes" ]]; then
-                    set_controller_native "$a" "no" || true
-                    $DEBUG && log_debug "OK    suporte nativo desmarcado (appid $a)" || true
-                    echo -e "  ${CHECK} suporte nativo desmarcado"
+                    loading_dots 1 "Desmarcar suporte nativo"
+                    set_controller_native "$appid" "no" || true
+                    $DEBUG && log_debug "[OK] suporte nativo desmarcado (appid $appid)" || true
+                    ui_log "${CHECK} suporte nativo desmarcado"
                 else
-                    set_controller_native "$a" "yes" || true
-                    $DEBUG && log_debug "OK    suporte nativo marcado (appid $a)" || true
-                    echo -e "  ${CHECK} suporte nativo marcado"
+                    loading_dots 1 "Marcar suporte nativo"
+                    set_controller_native "$appid" "yes" || true
+                    $DEBUG && log_debug "[OK] suporte nativo marcado (appid $appid)" || true
+                    ui_log "${CHECK} suporte nativo marcado"
                 fi
-                loading_dots 1
-                continue ;;
-            2)
-                $DEBUG && log_debug "OK    iniciando configuração de mapeamento (appid $a)" || true
-                local novo_map=""
+                auto_return_delay 1.2 ;;
+            1)
+                $DEBUG && log_debug "[OK] iniciando configuração de mapeamento (appid $appid)" || true
                 if gamepad_tool_installed; then
-                    novo_map=$(gamepad_tool_run_and_capture) || true
+                    gamepad_tool_run_and_capture "$mapping" || true
                 else
-                    novo_map=$(input_sdl_mapping) || true
+                    input_sdl_mapping "$mapping" || true
                 fi
-                if [[ -n "$novo_map" ]]; then
-                    set_controller_mapping "$a" "$novo_map" || true
-                    echo -e "  ${CHECK} mapeamento salvo"
-                    sleep 0.5
-                    continue
+                local new_mapping="$INPUT_RESULT"
+                if [[ -n "$new_mapping" ]]; then
+                    set_controller_mapping "$appid" "$new_mapping" || true
+                    ui_log "${CHECK} mapeamento salvo"
                 fi
-                sleep 1 ; true ;;
-            3)
-                reset_controller_override "$a" || true
-                echo -e "  ${CHECK} configurações resetadas"
-                sleep 1 ; true ;;
-            0) return ;;
-            *) invalid_option ;;
+                auto_return_delay 1.2 ;;
+            2)
+                reset_controller_override "$appid" || true
+                ui_log "${CHECK} configurações resetadas"
+                auto_return_delay 1.2 ;;
         esac
     done
 }
@@ -166,138 +206,250 @@ show_game_controller_menu() {
 # MENU DE CONTROLES (GLOBAL)
 # ===============
 
+_controller_device_items() {
+    CD_ITEMS=()
+    local tool_installed=false
+    gamepad_tool_installed && tool_installed=true
+    if $tool_installed; then
+        CD_ITEMS+=("Configurar mapeamento geral")
+    else
+        CD_ITEMS+=("Baixar gamepad-tool")
+    fi
+    if $tool_installed && [[ -n "$GAMEPAD_TOOL_UPDATE_AVAILABLE" ]]; then
+        CD_ITEMS+=("Atualização disponível (v${GAMEPAD_TOOL_UPDATE_AVAILABLE})")
+    fi
+    CD_ITEMS+=("Resetar")
+    if $tool_installed; then
+        CD_ITEMS+=("Remover gamepad-tool")
+    fi
+}
+
 show_controller_device_menu() {
-    local dname="$1"
-    while true; do
-        local global_map=""
-        [[ -f "$CONTROLLER_GLOBAL_CONF" ]] && global_map=$(cat "$CONTROLLER_GLOBAL_CONF" || true)
+    local device_name="$1"
 
-        local tool_installed=false
-        gamepad_tool_installed && tool_installed=true
+    _draw_controller_device_menu() {
+        local sel="$1" allow_back="$2"
+        _controller_device_items
+        local global_mapping=""
+        [[ -f "$CONTROLLER_GLOBAL_CONF" ]] && global_mapping=$(cat "$CONTROLLER_GLOBAL_CONF" || true)
 
-        local opt_configure=1 opt_update=0 opt_reset opt_remove=0 next=2
-        if $tool_installed && [[ -n "$GAMEPAD_TOOL_UPDATE_AVAILABLE" ]]; then
-            opt_update=$next; ((next++))
-        fi
-        opt_reset=$next; ((next++))
-        if $tool_installed; then
-            opt_remove=$next; ((next++))
-        fi
-
-        clear
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
+        render_logo
         box_top
-        box_mid "$dname"
-        if [[ -n "$global_map" ]] && is_valid_mapping "$global_map"; then
+        box_mid "$device_name"
+        if [[ -n "$global_mapping" ]] && is_valid_mapping "$global_mapping"; then
             box_row "  Status: mapeamento ativo"
         else
             box_row "  Status: sem mapeamento"
         fi
-        box_row ""
-        if $tool_installed; then
-            box_row "  [${opt_configure}]  Configurar mapeamento geral" "  [${AMARELO}${opt_configure}${NC}]  Configurar mapeamento geral"
-        else
-            box_row "  [${opt_configure}]  Baixar gamepad-tool" "  [${AMARELO}${opt_configure}${NC}]  Baixar gamepad-tool"
-        fi
-        if (( opt_update > 0 )); then
-            box_row "  [${opt_update}]  Atualização disponível (v${GAMEPAD_TOOL_UPDATE_AVAILABLE})" "  [${AMARELO}${opt_update}${NC}]  Atualização disponível (v${GAMEPAD_TOOL_UPDATE_AVAILABLE})"
-        fi
-        box_row "  [${opt_reset}]  Resetar" "  [${VERMELHO}${opt_reset}${NC}]  Resetar"
-        if (( opt_remove > 0 )); then
-            box_row "  [${opt_remove}]  Remover gamepad-tool" "  [${VERMELHO}${opt_remove}${NC}]  Remover gamepad-tool"
-        fi
-        box_mid "Sair"
-        box_row "  [0]  Voltar"
+        box_row_blank
+        box_items "$sel" "${CD_ITEMS[@]}"
         box_bottom
-        debug_flush
-        echo ""
-        read -p " > " c
+        render_footer "$allow_back"
+    }
 
-        if [[ "$c" == "0" ]]; then
-            return
-        elif [[ "$c" == "$opt_configure" ]]; then
-            if $tool_installed; then
-                $DEBUG && log_debug "OK    configurando mapeamento geral" || true
-                local novo_map=""
-                novo_map=$(gamepad_tool_run_and_capture) || true
-                if [[ -n "$novo_map" ]]; then
-                    echo "$novo_map" > "$CONTROLLER_GLOBAL_CONF" || true
-                    $DEBUG && log_debug "OK    mapeamento geral salvo" || true
-                    echo -e "  ${CHECK} mapeamento geral salvo"
+    while true; do
+        gamepad_tool_check_update
+        _controller_device_items
+        run_menu "${#CD_ITEMS[@]}" _draw_controller_device_menu true
+        [[ "$MENU_RESULT" == "BACK" ]] && return
+
+        local chosen="${CD_ITEMS[$MENU_RESULT]}"
+        case "$chosen" in
+            "Configurar mapeamento geral")
+                $DEBUG && log_debug "[OK] configurando mapeamento geral" || true
+                local global_mapping=""
+                [[ -f "$CONTROLLER_GLOBAL_CONF" ]] && global_mapping=$(cat "$CONTROLLER_GLOBAL_CONF" || true)
+                gamepad_tool_run_and_capture "$global_mapping" || true
+                local new_mapping="$INPUT_RESULT"
+                if [[ -n "$new_mapping" ]]; then
+                    echo "$new_mapping" > "$CONTROLLER_GLOBAL_CONF" || true
+                    $DEBUG && log_debug "[OK] mapeamento geral salvo" || true
+                    ui_log "${CHECK} mapeamento geral salvo"
                 fi
-            else
+                auto_return_delay 1.2 ;;
+            "Baixar gamepad-tool")
                 gamepad_tool_download || true
-            fi
-            loading_dots 1
-        elif (( opt_update > 0 )) && [[ "$c" == "$opt_update" ]]; then
-            gamepad_tool_download || true
-            loading_dots 1
-        elif [[ "$c" == "$opt_reset" ]]; then
-            rm -f "$CONTROLLER_GLOBAL_CONF" || true
-            $DEBUG && log_debug "OK    mapeamento geral resetado" || true
-            echo -e "  ${CHECK} mapeamento geral resetado"
-            loading_dots 1
-        elif (( opt_remove > 0 )) && [[ "$c" == "$opt_remove" ]]; then
-            echo ""
-            echo -e "  Remover gamepad-tool? (s/N)"
-            read -p " > " resp
-            case "${resp,,}" in
-                s|sim)
-                    echo -e "  ${CINZA}[INFO] removendo gamepad-tool ..${NC}"
+                auto_return_delay 1.2 ;;
+            "Resetar")
+                rm -f "$CONTROLLER_GLOBAL_CONF" || true
+                $DEBUG && log_debug "[OK] mapeamento geral resetado" || true
+                ui_log "${CHECK} mapeamento geral resetado"
+                auto_return_delay 1.2 ;;
+            "Remover gamepad-tool")
+                if confirm_dialog "gamepad-tool" "Remover gamepad-tool?"; then
                     gamepad_tool_remove
-                    echo -e "  ${CHECK} gamepad-tool removido"
-                    sleep 1 ;;
-            esac
-        else
-            invalid_option
-        fi
+                    ui_log "${CHECK} gamepad-tool removido"
+                    auto_return_delay 1.2
+                fi ;;
+            "Atualização disponível"*)
+                gamepad_tool_download || true
+                auto_return_delay 1.2 ;;
+        esac
     done
 }
 
 show_controllers_menu() {
     local devices=()
-    while IFS= read -r line; do
-        [[ -n "$line" ]] && devices+=("$line")
-    done < <(detect_controllers)
+    mapfile -t devices < <(detect_controllers)
 
     gamepad_tool_check_update
 
-    while true; do
-        clear
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
+    _draw_controllers_menu() {
+        local sel="$1" allow_back="$2"
+        render_logo
         box_top
         box_mid "Controles"
+        box_row_blank
         if [[ ${#devices[@]} -eq 0 ]]; then
             box_row "  nenhum controle detectado"
         else
-            local idx=1
-            for dname in "${devices[@]}"; do
-                box_row "  [${idx}]  ${dname}" "  [${AMARELO}${idx}${NC}]  ${dname}"
-                ((idx++))
-            done
+            box_items "$sel" "${devices[@]}"
         fi
-        box_mid "Sair"
-        box_row "  [0]  Voltar"
         box_bottom
-        debug_flush
-        echo ""
-        read -p " > " c
+        render_footer "$allow_back"
+    }
 
-        case "$c" in
-            0) return ;;
-            [1-9]|[1-9][0-9])
-                if (( ${#devices[@]} > 0 && c >= 1 && c <= ${#devices[@]} )); then
-                    show_controller_device_menu "${devices[$((c-1))]}"
-                else
-                    invalid_option
-                fi ; true ;;
-            *) invalid_option ;;
+    if [[ ${#devices[@]} -eq 0 ]]; then
+        run_menu 0 _draw_controllers_menu true
+        return
+    fi
+
+    while true; do
+        run_menu "${#devices[@]}" _draw_controllers_menu true
+        [[ "$MENU_RESULT" == "BACK" ]] && return
+        show_controller_device_menu "${devices[$MENU_RESULT]}"
+    done
+}
+
+# ===============
+# LOJA
+# ===============
+
+show_store_menu() {
+    _draw_store_menu() {
+        local sel="$1" allow_back="$2"
+        render_logo
+        box_top
+        box_mid "Loja"
+        box_row_blank
+        box_items "$sel" "Baixar jogos"
+        box_bottom
+        render_footer "$allow_back"
+    }
+
+    while true; do
+        run_menu 1 _draw_store_menu true
+        case "$MENU_RESULT" in
+            BACK) return ;;
+            0) $DEBUG && log_debug "[OK] acessando baixar jogos"; baixar_jogos; scan_games; filter_games ;;
+        esac
+    done
+}
+
+# ===============
+# BIBLIOTECA
+# ===============
+
+LIBRARY_VISIBLE=0
+
+_library_visible_count() {
+    local term_height visible
+    term_height=$(get_term_height)
+    visible=$(( term_height - $(chrome_lines_scrollable) ))
+    (( visible < 3 )) && visible=3
+    (( visible > 14 )) && visible=14
+    echo "$visible"
+}
+
+show_library_menu() {
+    if [[ ${#GAMES[@]} -eq 0 ]]; then return; fi
+
+    _draw_library_menu() {
+        local sel="$1" allow_back="$2"
+        LIBRARY_VISIBLE=$MENU_VISIBLE
+
+        render_logo
+        box_top
+        box_mid "Biblioteca"
+        local total=${#GAMES[@]}
+        local start=$MENU_WINDOW_START
+        if (( start > 0 )); then
+            box_row "  ${CINZA}▲ mais acima${NC}"
+        else
+            box_row_blank
+        fi
+        local i idx game appid name installdir library native mapping icon platform display_name
+        local right right_width name_max left left_padded line
+        for (( i=0; i<LIBRARY_VISIBLE; i++ )); do
+            idx=$(( start + i ))
+            if (( idx >= total )); then
+                box_row_blank
+                continue
+            fi
+            game="${GAMES[$idx]}"
+            IFS='|' read -r appid name installdir library platform _ <<< "$game"
+            IFS='|' read -r native mapping <<< "$(controller_status "$appid")"
+            if [[ "$native" == "yes" ]] || { [[ -n "$mapping" ]] && is_valid_mapping "$mapping"; }; then
+                icon="$ICON_GAMEPAD"
+            else
+                icon="$ICON_KEYBOARD"
+            fi
+            local platform_icon=$([ "$platform" = "linux" ] && echo "$ICON_LINUX" || echo "$ICON_WINDOWS")
+            right="${icon}  ${platform_icon}  "
+            right_width=$(display_width "$right")
+            name_max=$(( BOXW - right_width - 4 ))
+            (( name_max < 8 )) && name_max=8
+            display_name=$(truncate_name "$name" "$name_max")
+            left="  ${display_name}"
+            left_padded=$(pad_to_width "$left" $((BOXW - right_width)))
+            line="${left_padded}${right}"
+            if (( idx == sel )); then box_row_selected "$line"; else box_row "$line"; fi
+        done
+        if (( start + LIBRARY_VISIBLE < total )); then
+            box_row "  ${CINZA}▼ mais abaixo${NC}"
+        else
+            box_row_blank
+        fi
+        box_bottom
+        render_footer "$allow_back"
+    }
+
+    while true; do
+        run_menu "${#GAMES[@]}" _draw_library_menu true _library_visible_count
+        case "$MENU_RESULT" in
+            BACK) return ;;
+            *)
+                show_game_menu "${GAMES[$MENU_RESULT]}"
+                scan_games
+                filter_games
+                [[ ${#GAMES[@]} -eq 0 ]] && return
+                ;;
+        esac
+    done
+}
+
+# ===============
+# CONFIG
+# ===============
+
+show_config_menu() {
+    _draw_config_menu() {
+        local sel="$1" allow_back="$2"
+        render_logo
+        box_top
+        box_mid "Config"
+        box_row_blank
+        box_items "$sel" "Controle" "Dependências"
+        box_bottom
+        render_footer "$allow_back"
+    }
+
+    while true; do
+        run_menu 2 _draw_config_menu true
+        case "$MENU_RESULT" in
+            BACK) return ;;
+            0) show_controllers_menu ;;
+            1) show_deps_menu ;;
         esac
     done
 }
@@ -307,78 +459,35 @@ show_controllers_menu() {
 # ===============
 
 show_main_menu() {
-    local first=true
-    while true; do
-        clear
-        if [[ $first == true ]]; then
-            check_update "$@"
-            first=false
-        fi
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
+    check_update "$@"
+    tput civis 2>/dev/null || true
 
-        if [[ ${#GAMES[@]} -eq 0 ]]; then
+    while true; do
+        local has_games=true
+        (( ${#GAMES[@]} == 0 )) && has_games=false
+
+        local sections=("Loja")
+        $has_games && sections+=("Biblioteca")
+        sections+=("Config")
+
+        _draw_main_menu() {
+            local sel="$1" allow_back="$2"
+            render_logo
             box_top
-            box_mid "Loja"
-            box_row "  [B]  Baixar jogos" "  [${VERDE}B${NC}]  Baixar jogos"
-            box_mid "Sair"
-            box_row "  [0]  Fechar" "  [${VERMELHO}0${NC}]  Fechar"
+            box_mid "v${VERSION} ${AGL}"
+            box_row_blank
+            box_items "$sel" "${sections[@]}"
             box_bottom
-            debug_flush
-            read -p " > " c
-            case "$c" in
-                0) $DEBUG && log_debug "OK    fechando steam-tui"; prompt_exit_steam; exit 0 ; true ;;
-                [bB]) $DEBUG && log_debug "OK    acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
-                *) invalid_option ;;
-            esac
-        else
-            box_top
-            box_mid "Loja"
-            box_row "  [B]  Baixar jogos" "  [${VERDE}B${NC}]  Baixar jogos"
-            box_mid "Biblioteca"
-            local idx=1 a n i l p native mapping icon plat display_n padded
-            for game in "${GAMES[@]}"; do
-                IFS='|' read -r a n i l p _ <<< "$game"
-                IFS='|' read -r native mapping <<< "$(controller_status "$a")"
-                if [[ "$native" == "yes" ]] || { [[ -n "$mapping" ]] && is_valid_mapping "$mapping"; }; then
-                    icon="$ICON_GAMEPAD"
-                else
-                    icon="$ICON_KEYBOARD"
-                fi
-                plat=$([ "$p" = "linux" ] && echo "$ICON_LINUX" || echo "$ICON_WINDOWS")
-                display_n=$(truncate_name "$n" 22)
-                padded=$(pad_to_width "  [${idx}]  ${display_n}" 34)
-                box_row "${padded}${icon}  ${plat}"
-                ((idx++))
-            done
-            box_mid "Config"
-            box_row "  [C]  Controle" "  [${AMARELO}C${NC}]  Controle"
-            box_row "  [D]  Dependências" "  [${AMARELO}D${NC}]  Dependências"
-            box_mid "Sair"
-            box_row "  [0]  Fechar" "  [${VERMELHO}0${NC}]  Fechar"
-            box_bottom
-            debug_flush
-            echo ""
-            read -p " > " c
-            case "$c" in
-                0) $DEBUG && log_debug "OK    fechando steam-tui"; prompt_exit_steam; exit 0 ; true ;;
-                [bB]) $DEBUG && log_debug "OK    acessando baixar jogos"; baixar_jogos; scan_games; filter_games ; true ;;
-                [cC]) $DEBUG && log_debug "OK    acessando controles"; show_controllers_menu ; true ;;
-                [dD]) $DEBUG && log_debug "OK    acessando dependências"; show_deps_menu ; true ;;
-                [1-9]|[1-9][0-9])
-                    if (( c >= 1 && c <= ${#GAMES[@]} )); then
-                        show_game_menu "${GAMES[$((c-1))]}"
-                        loading_dots 1
-                        scan_games
-                        filter_games
-                    else
-                        invalid_option
-                    fi ; true ;;
-                *) invalid_option ;;
-            esac
-        fi
+            render_footer "$allow_back"
+        }
+
+        run_menu "${#sections[@]}" _draw_main_menu false
+
+        local choice="${sections[$MENU_RESULT]}"
+        case "$choice" in
+            "Loja") $DEBUG && log_debug "[OK] acessando loja"; show_store_menu ;;
+            "Biblioteca") $DEBUG && log_debug "[OK] acessando biblioteca"; show_library_menu ;;
+            "Config") $DEBUG && log_debug "[OK] acessando config"; show_config_menu ;;
+        esac
     done
 }
-
