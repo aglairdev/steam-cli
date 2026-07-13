@@ -5,7 +5,7 @@
 # CONFIGURAÇÃO
 # ===============
 
-VERSION="2.0.1"
+VERSION="2.0.2"
 AGL="ꕤ"
 
 STEAM_HOME=""
@@ -14,7 +14,9 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/steam-tui"
 DEBUG=false
 DEBUG_LOG=""
 
-REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/lib/core.sh"
+CORE_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/lib/core.sh"
+MAIN_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/steam-tui.sh"
+
 TOOLS_APPIDS=(1070560 1493710 1628350 2180100 228980 4183110)
 EXTERNAL_PROGRAMS=("gamemoderun" "mangohud")
 

@@ -180,9 +180,9 @@ trap cleanup EXIT INT TERM
 # ===============
 
 check_update() {
-    [[ -z "$REPO_URL" ]] && return
+    [[ -z "$CORE_URL" ]] && return
     local remote_version
-    remote_version=$(curl -s --connect-timeout 3 "$REPO_URL" | grep '^VERSION=' | head -1 | cut -d'"' -f2) || true
+    remote_version=$(curl -s --connect-timeout 3 "$CORE_URL" | grep '^VERSION=' | head -1 | cut -d'"' -f2) || true
     [[ -z "$remote_version" ]] || [[ "$remote_version" == "$VERSION" ]] && return
 
     if confirm_dialog "Atualização" "Nova versão v${remote_version} disponível (atual v${VERSION}). Atualizar?"; then
@@ -190,7 +190,7 @@ check_update() {
         loading_dots 1 "Baixando v${remote_version}"
         local tmp
         tmp=$(mktemp)
-        if curl -sL --connect-timeout 10 "$REPO_URL" -o "$tmp"; then
+        if curl -sL --connect-timeout 10 "$MAIN_URL" -o "$tmp"; then
             chmod +x "$tmp"
             cat "$tmp" > "$0"
             rm -f "$tmp"
