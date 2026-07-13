@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+#
+# steam-tui ~ biblioteca de jogos steam via terminal
+# © 2026 steam-tui ~ AGL ~ github.com/aglairdev
+# Licença: MIT
+#
+# uso:  ./steam-tui.sh
+#       ./steam-tui.sh -d     #debug
+#       ./steam-tui.sh -v     #versão
+#       ./steam-tui.sh -h     #ajuda
+#
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+
+source "$SCRIPT_DIR/lib/core.sh"
+source "$SCRIPT_DIR/lib/responsiveness.sh"
+source "$SCRIPT_DIR/lib/ui.sh"
+source "$SCRIPT_DIR/lib/logo.sh"
+source "$SCRIPT_DIR/lib/config.sh"
+source "$SCRIPT_DIR/lib/deps.sh"
+source "$SCRIPT_DIR/lib/steam.sh"
+source "$SCRIPT_DIR/lib/games.sh"
+source "$SCRIPT_DIR/lib/controller.sh"
+source "$SCRIPT_DIR/lib/menus.sh"
+
+# ===============
+# MAIN
+# ===============
+
+main() {
+    stty -echo 2>/dev/null || true
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -d|--debug) DEBUG=true; DEBUG_MODE=true ;;
+            -v|--version) echo -e "  ${AGL} steam-tui v${VERSION}"; exit 0 ;;
+            -h|--help)
+                echo "uso: ./steam-tui.sh [-d] [-v] [-h]"
+                echo "  -d  mostra output completo (nativo + proton)"
+                echo "  -v  mostra versão"
+                echo "  -h  mostra ajuda"
+                exit 0 ;;
+        esac; shift
+    done
+
+    if $DEBUG; then
+        DEBUG_LOG="$CONFIG_DIR/debug.log"
+        mkdir -p "$CONFIG_DIR"
+        [[ -f "$DEBUG_LOG" ]] || echo "--" > "$DEBUG_LOG"
+        local timestamp
+        timestamp=$(date '+%d-%m-%Y %H:%M:%S')
+        echo "[$timestamp] === INÍCIO SESSAO ===" >> "$DEBUG_LOG"
+        log_debug "[OK] modo debug iniciado (steam-tui v${VERSION})"
+    fi
+
+    setup_config
+    detect_steam_installation
+    detect_libraries
+    scan_games
+    filter_games
+
+    box_init
+
+    if ! pgrep -x steam >/dev/null 2>&1; then
+        if command -v steam &>/dev/null; then
+            $DEBUG && log_debug "[OK] steam iniciado em modo headless" || true
+            if $DEBUG; then $STEAM_CMD -no-browser -silent &
+            else $STEAM_CMD -no-browser -silent &>/dev/null & fi
+            loading_dots 2 "Iniciando Steam"
+        else
+            _draw_steam_notice() {
+                box_init
+                render_logo
+                box_top
+                box_mid "${AGL} steam-tui"
+                box_row "  Steam não encontrado" "  ${AMARELO}Steam não encontrado${NC}"
+                box_bottom
+            }
+            render_static_screen "$(_draw_steam_notice)"
+            sleep 1.2
+            $DEBUG && log_debug "[ERROR] steam não encontrado: binário ausente" || true
+        fi
+    fi
+
+    show_main_menu "$@"
+}
+
+main "$@"

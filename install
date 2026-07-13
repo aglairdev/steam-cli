@@ -3,25 +3,108 @@
 # © 2026 ~ AGL ~ github.com/aglairdev
 #
 
-STEAM_BLUE="\e[38;2;27;40;56m"    
-STEAM_BLUE_L="\e[38;2;45;90;140m" 
-GREEN="\e[32m"
-YELLOW="\e[33m"
-RED="\e[31m"
-RESET="\e[0m"
-CHECK="✓"
-CROSS="✗"
+VERDE="\033[38;2;120;170;120m"
+VERMELHO="\033[38;2;190;100;100m"
+AMARELO="\033[38;2;200;180;100m"
+AZUL="\033[38;2;100;150;200m"
+CINZA="\033[38;2;150;150;150m"
+NC="\033[0m"
+CHECK="✔"
+XIS="✘"
 AGL="ꕤ"
 
 DIR_BIN="$HOME/.local/bin"
-DIR_CONF="$HOME/.config/steam-cli"                          
-REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-cli/main/steam-cli.sh"  
-BIN_NAME="steam-cli"                                         
+DIR_CONF="$HOME/.config/steam-tui"
+DIR_FONTS="$HOME/.local/share/fonts"
+REPO_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/steam-tui.sh"
+BIN_NAME="steam-tui"
+NERD_FONT_NAME="0xProto"
+NERD_FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/${NERD_FONT_NAME}.tar.xz"
 
 clear
 echo ""
-echo -e "  ${STEAM_BLUE_L}steam-cli ${AGL}${RESET}\n"       
+echo -e "  ${AGL} steam-tui${NC}\n"
+
+# ===============
+# LOADING
+# ===============
+
+loading_dots() {
+    local seconds="$1" msg="${2:-Carregando}"
+    local frames=("." ".." "...") i=0 steps=$((seconds * 3))
+    while (( i < steps )); do
+        printf "\r  ${CINZA}%s%s${NC}   " "$msg" "${frames[$((i % 3))]}"
+        sleep 0.33
+        i=$((i + 1))
+    done
+    printf "\r\033[K"
+}
+
+# ===============
+# NERD FONT
+# ===============
+
+detect_nerd_font() {
+    command -v fc-list &> /dev/null && fc-list 2>/dev/null | grep -qi "nerd font" && return 0
+    find "$DIR_FONTS" /usr/local/share/fonts -iname "*Nerd Font*" 2>/dev/null | grep -q . && return 0
+    return 1
+}
+
+install_nerd_font() {
+    local tmp_archive
+    tmp_archive=$(mktemp --suffix=.tar.xz 2>/dev/null) || {
+        echo -e "  ${VERMELHO}${XIS}${NC} não foi possível criar arquivo temporário."
+        return 1
+    }
+
+    loading_dots 2 "Baixando ${NERD_FONT_NAME} Nerd Font"
+    if ! curl -fL "$NERD_FONT_URL" -o "$tmp_archive"; then
+        echo -e "  ${VERMELHO}${XIS}${NC} falha ao baixar ${NERD_FONT_NAME} Nerd Font."
+        rm -f "$tmp_archive"
+        return 1
+    fi
+
+    if ! mkdir -p "$DIR_FONTS" 2>/dev/null; then
+        echo -e "  ${VERMELHO}${XIS}${NC} sem permissão para criar ${CINZA}~/.local/share/fonts${NC}."
+        rm -f "$tmp_archive"
+        return 1
+    fi
+
+    if ! tar -xf "$tmp_archive" -C "$DIR_FONTS" 2>/dev/null; then
+        echo -e "  ${VERMELHO}${XIS}${NC} falha ao extrair ${NERD_FONT_NAME} Nerd Font."
+        rm -f "$tmp_archive"
+        return 1
+    fi
+
+    rm -f "$tmp_archive"
+
+    if command -v fc-cache &> /dev/null; then
+        fc-cache -f "$DIR_FONTS" &> /dev/null
+    fi
+
+    echo -e "  ${VERDE}${CHECK}${NC} ${NERD_FONT_NAME} Nerd Font instalado!"
+    return 0
+}
+
+setup_nerd_font() {
+    detect_nerd_font && return 0
+
+    echo -e "  Nerd Fonts não detectado."
+    read -p "  Nerd Fonts é necessário para exibir ícones, instalar? (s/N): " install_font
+    if [[ "$install_font" =~ ^[sS]$ ]]; then
+        install_nerd_font || echo -e "  ${AMARELO}Prosseguindo sem Nerd Fonts.${NC}"
+    else
+        echo -e "  ${AMARELO}Prosseguindo sem Nerd Fonts.${NC}"
+    fi
+}
+
+setup_nerd_font
+
 echo -e "  Estabelecendo conexão com o repositório..."
+
+# ===============
+# DEPENDÊNCIAS
+# ===============
 
 check_deps() {
     local deps=("curl")
@@ -33,9 +116,9 @@ check_deps() {
     done
 
     if [ ${#missing[@]} -ne 0 ]; then
-        echo -e "\n  ${YELLOW}Para funcionar, o steam-cli precisa de:${RESET} ${missing[*]}" 
-        read -p "  Permitir que o instalador tente resolver via gerenciador de pacotes? (s/n): " auth
-        if [[ "$auth" == "s" ]]; then
+        echo -e "\n  ${AMARELO}Para funcionar, o steam-tui precisa de:${NC} ${missing[*]}"
+        read -p "  Permitir que o instalador tente resolver via gerenciador de pacotes? (s/N): " auth
+        if [[ "$auth" =~ ^[sS]$ ]]; then
             if command -v dnf &> /dev/null; then
                 sudo dnf install -y "${missing[@]}"
             elif command -v apt &> /dev/null; then
@@ -43,7 +126,7 @@ check_deps() {
             elif command -v pacman &> /dev/null; then
                 sudo pacman -S --noconfirm "${missing[@]}"
             else
-                echo -e "\n  ${RED}${CROSS} Gerenciador de pacotes não identificado.${RESET}"
+                echo -e "\n  ${VERMELHO}${XIS} Gerenciador de pacotes não identificado.${NC}"
                 exit 1
             fi
         else
@@ -56,9 +139,9 @@ check_deps() {
 check_deps
 
 mkdir -p "$DIR_BIN"
-mkdir -p "$DIR_CONF/params"  
+mkdir -p "$DIR_CONF/params"
 
-sleep 1
+loading_dots 2 "Baixando steam-tui"
 HTTP_STATUS=$(curl -L -w "%{http_code}" "$REPO_URL" -o "$DIR_CONF/$BIN_NAME.sh" --silent)
 
 if [ "$HTTP_STATUS" -eq 200 ]; then
@@ -67,35 +150,35 @@ if [ "$HTTP_STATUS" -eq 200 ]; then
     rm -f "$DIR_BIN/$BIN_NAME"
 
     if ln -s "$DIR_CONF/$BIN_NAME.sh" "$DIR_BIN/$BIN_NAME" 2>/dev/null; then
-        echo -e "\n  ${GREEN}${CHECK}${RESET} steam-cli configurado com sucesso!"  
+        echo -e "\n  ${VERDE}${CHECK}${NC} steam-tui configurado com sucesso!"
     else
         if [[ ":$PATH:" == *":$DIR_BIN:"* ]]; then
             if sudo ln -sf "$DIR_CONF/$BIN_NAME.sh" "$DIR_BIN/$BIN_NAME" 2>/dev/null; then
-                echo -e "\n  ${GREEN}${CHECK}${RESET} steam-cli configurado com sucesso!"  
+                echo -e "\n  ${VERDE}${CHECK}${NC} steam-tui configurado com sucesso!"
             else
-                echo -e "\n  ${RED}${CROSS} Não foi possível criar o link simbólico.${RESET}"
+                echo -e "\n  ${VERMELHO}${XIS} Não foi possível criar o link simbólico.${NC}"
                 echo -e "  Execute manualmente:"
-                echo -e "${STEAM_BLUE_L}  sudo ln -sf $DIR_CONF/$BIN_NAME.sh $DIR_BIN/$BIN_NAME${RESET}"
+                echo -e "  ${CINZA}sudo ln -sf $DIR_CONF/$BIN_NAME.sh $DIR_BIN/$BIN_NAME${NC}"
                 exit 1
             fi
         else
-            echo -e "\n  O diretório $DIR_BIN não está no seu PATH."
+            echo -e "\n  O diretório ${CINZA}$DIR_BIN${NC} não está no seu PATH."
             case "$(basename "$SHELL")" in
                 fish)
-                    echo -e "  Adicione ao ~/.config/fish/config.fish:"
-                    echo -e "${STEAM_BLUE_L}  set -gx PATH \$HOME/.local/bin \$PATH${RESET}"
+                    echo -e "  Adicione ao ${CINZA}~/.config/fish/config.fish${NC}:"
+                    echo -e "  ${CINZA}set -gx PATH \$HOME/.local/bin \$PATH${NC}"
                     ;;
                 zsh)
-                    echo -e "  Adicione ao ~/.zshrc:"
-                    echo -e "${STEAM_BLUE_L}  export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+                    echo -e "  Adicione ao ${CINZA}~/.zshrc${NC}:"
+                    echo -e "  ${CINZA}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
                     ;;
                 *)
-                    echo -e "  Adicione ao ~/.bashrc:"
-                    echo -e "${STEAM_BLUE_L}  export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+                    echo -e "  Adicione ao ${CINZA}~/.bashrc${NC}:"
+                    echo -e "  ${CINZA}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
                     ;;
             esac
             echo -e "  Depois reinicie o terminal e rode novamente:"
-            echo -e "${STEAM_BLUE_L}  curl -fsSL steamcli.pages.dev/install | bash${RESET}"
+            echo -e "  ${CINZA}curl -fsSL steamcli.pages.dev/install | bash${NC}"
             exit 1
         fi
     fi
@@ -111,26 +194,26 @@ EOC
     fi
 
     if [[ ":$PATH:" != *":$DIR_BIN:"* ]]; then
-        echo -e "\n  ${YELLOW}Atenção:${RESET} O diretório $DIR_BIN não está no seu PATH."
+        echo -e "\n  ${AMARELO}Atenção:${NC} O diretório ${CINZA}$DIR_BIN${NC} não está no seu PATH."
         case "$(basename "$SHELL")" in
             fish)
-                echo -e "  Adicione ao ~/.config/fish/config.fish:"
-                echo -e "${STEAM_BLUE_L}  set -gx PATH \$HOME/.local/bin \$PATH${RESET}"
+                echo -e "  Adicione ao ${CINZA}~/.config/fish/config.fish${NC}:"
+                echo -e "  ${CINZA}set -gx PATH \$HOME/.local/bin \$PATH${NC}"
                 ;;
             zsh)
-                echo -e "  Adicione ao ~/.zshrc:"
-                echo -e "${STEAM_BLUE_L}  export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+                echo -e "  Adicione ao ${CINZA}~/.zshrc${NC}:"
+                echo -e "  ${CINZA}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
                 ;;
             *)
-                echo -e "  Adicione ao ~/.bashrc:"
-                echo -e "${STEAM_BLUE_L}  export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+                echo -e "  Adicione ao ${CINZA}~/.bashrc${NC}:"
+                echo -e "  ${CINZA}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
                 ;;
         esac
         echo -e "  Depois reinicie o terminal."
     else
-        echo -e "\n  Tudo pronto. Basta digitar ${STEAM_BLUE_L}steam-cli${RESET} para começar.\n" 
+        echo -e "\n  Tudo pronto. Basta digitar ${AZUL}steam-tui${NC} para começar.\n"
     fi
 else
-    echo -e "\n  ${RED}${CROSS} Ops! Ocorreu um problema ao baixar o arquivo.${RESET}"
+    echo -e "\n  ${VERMELHO}${XIS} Não foi possível acessar. Verifique sua conexão e tente novamente.${NC}"
     exit 1
 fi
