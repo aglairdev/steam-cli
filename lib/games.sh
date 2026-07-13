@@ -23,97 +23,83 @@ exec_game() {
     fi
 }
 
-
 # ===============
 # DETECÇÃO EXECUTÁVEIS
 # ===============
 
 find_game_exe() {
-    local i="$1" l="$2"
-    local d="$l/steamapps/common/$i"
-    [[ -d "$d" ]] || { $DEBUG && log_debug "EXE   diretório não encontrado: $d"; return 1; }
+    local installdir="$1" library="$2"
+    local dir="$library/steamapps/common/$installdir"
+    [[ -d "$dir" ]] || { $DEBUG && log_debug "[ERROR] diretório não encontrado: $dir"; return 1; }
     local exes=()
-    while IFS= read -r -d '' e; do
-        local b=$(basename "$e"); b="${b,,}"
-        case "$b" in
+    while IFS= read -r -d '' exe; do
+        local base=$(basename "$exe"); base="${base,,}"
+        case "$base" in
             uninstall*|unins*|*redist*|vcredist*|dxwebsetup*|dotnet*|*setup*) continue ;;
         esac
-        exes+=("$e")
-    done < <(find "$d" -maxdepth 4 -name '*.exe' -type f -print0 2>/dev/null)
-    $DEBUG && log_debug "EXE   ${#exes[@]} executáveis .exe encontrados em $i" || true
+        exes+=("$exe")
+    done < <(find "$dir" -maxdepth 4 -name '*.exe' -type f -print0 2>/dev/null)
     case ${#exes[@]} in
-        0) $DEBUG && log_debug "FALHA nenhum .exe encontrado para $i"; return 1 ;;
-        1) $DEBUG && log_debug "OK    exe selecionado: ${exes[0]}"; echo "${exes[0]}" ;;
+        0) return 1 ;;
+        1) $DEBUG && log_debug "[OK] exe selecionado: ${exes[0]}"; echo "${exes[0]}" ;;
         *)
-            local dl="${i,,}"
-            for e in "${exes[@]}"; do
-                local en=$(basename "$e" .exe); en="${en,,}"
-                if [[ "$en" == "$dl" ]]; then
-                    $DEBUG && log_debug "OK    exe por nome: $e" || true
-                    echo "$e"; return 0
+            local installdir_lower="${installdir,,}"
+            for exe in "${exes[@]}"; do
+                local exe_name; exe_name=$(basename "$exe" .exe); exe_name="${exe_name,,}"
+                if [[ "$exe_name" == "$installdir_lower" ]]; then
+                    $DEBUG && log_debug "[OK] exe selecionado: $exe" || true
+                    echo "$exe"; return 0
                 fi
             done
-            $DEBUG && log_debug "OK    exe padrão: ${exes[0]}" || true
+            $DEBUG && log_debug "[OK] exe selecionado: ${exes[0]}" || true
             echo "${exes[0]}" ;;
     esac
 }
 
 find_linux_exe() {
-    local i="$1" l="$2"
-    local d="$l/steamapps/common/$i"
-    [[ -d "$d" ]] || { $DEBUG && log_debug "LIN   diretório não encontrado: $d"; return 1; }
-    local il="${i,,}" elfs=()
-    while IFS= read -r -d '' f; do
-        file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$f")
-    done < <(find "$d" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
-    $DEBUG && log_debug "LIN   ${#elfs[@]} ELF encontrados em $i" || true
+    local installdir="$1" library="$2"
+    local dir="$library/steamapps/common/$installdir"
+    [[ -d "$dir" ]] || { $DEBUG && log_debug "[ERROR] diretório não encontrado: $dir"; return 1; }
+    local installdir_lower="${installdir,,}" elfs=()
+    while IFS= read -r -d '' file_path; do
+        file -b "$file_path" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$file_path")
+    done < <(find "$dir" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
 
     local candidate=""
-    for f in "${elfs[@]}"; do
-        local fn; fn=$(basename "$f"); fn="${fn,,}"
-        if [[ "$fn" == "$il" ]]; then
-            candidate="$f"; break
+    for elf in "${elfs[@]}"; do
+        local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
+        if [[ "$elf_name" == "$installdir_lower" ]]; then
+            candidate="$elf"; break
         fi
     done
     if [[ -z "$candidate" ]]; then
-        for f in "${elfs[@]}"; do
-            local fn; fn=$(basename "$f"); fn="${fn,,}"
-            if [[ "$fn" == *launcher* ]]; then
-                candidate="$f"; break
+        for elf in "${elfs[@]}"; do
+            local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
+            if [[ "$elf_name" == *launcher* ]]; then
+                candidate="$elf"; break
             fi
         done
     fi
     if [[ -z "$candidate" ]]; then
-        for f in "${elfs[@]}"; do
-            if [[ -x "$f" ]]; then
-                candidate="$f"; break
+        for elf in "${elfs[@]}"; do
+            if [[ -x "$elf" ]]; then
+                candidate="$elf"; break
             fi
         done
     fi
     [[ -z "$candidate" ]] && candidate="${elfs[0]:-}"
     if [[ -n "$candidate" ]]; then
-        $DEBUG && log_debug "OK    exe linux: $candidate" || true
+        $DEBUG && log_debug "[OK] exe linux: $candidate" || true
         echo "$candidate"; return 0
     fi
 
-    for s in "start.sh" "launch.sh" "run.sh" "game.sh" "${il}.sh"; do
-        if [[ -f "$d/$s" ]]; then
-            $DEBUG && log_debug "OK    shell script: $d/$s" || true
-            echo "$d/$s"; return 0
+    for script in "start.sh" "launch.sh" "run.sh" "game.sh" "${installdir_lower}.sh"; do
+        if [[ -f "$dir/$script" ]]; then
+            $DEBUG && log_debug "[OK] shell script: $dir/$script" || true
+            echo "$dir/$script"; return 0
         fi
     done
-    $DEBUG && log_debug "FALHA nenhum executável linux para $i" || true
     return 1
-}
-
-get_platform_icon() {
-    local i="$1" l="$2"
-    local d="$l/steamapps/common/$i"
-    [[ -d "$d" ]] || { echo "$ICON_WINDOWS"; return; }
-    while IFS= read -r -d '' f; do
-        file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && { echo "$ICON_LINUX"; return; }
-    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
-    echo "$ICON_WINDOWS"
 }
 
 # ===============
@@ -121,16 +107,16 @@ get_platform_icon() {
 # ===============
 
 find_runtime() {
-    for l in "${LIBRARIES[@]}"; do
-        for r in "SteamLinuxRuntime_sniper" "SteamLinuxRuntime_4" "SteamLinuxRuntime"; do
-            local b="$l/steamapps/common/$r/run"
-            if [[ -x "$b" ]]; then
-                $DEBUG && log_debug "OK    runtime: $b" || true
-                echo "$b"; return 0
+    for library in "${LIBRARIES[@]}"; do
+        for runtime_name in "SteamLinuxRuntime_sniper" "SteamLinuxRuntime_4" "SteamLinuxRuntime"; do
+            local bin="$library/steamapps/common/$runtime_name/run"
+            if [[ -x "$bin" ]]; then
+                $DEBUG && log_debug "[OK] runtime: $bin" || true
+                echo "$bin"; return 0
             fi
         done
     done
-    $DEBUG && log_debug "FALHA runtime não encontrado" || true
+    $DEBUG && log_debug "[ERROR] runtime não encontrado" || true
     return 1
 }
 
@@ -139,161 +125,163 @@ find_runtime() {
 # ===============
 
 get_proton() {
-    local a="$1" v="PROTON_${a}"
-    if [[ -n "${!v:-}" ]]; then
-        $DEBUG && log_debug "OK    proton por variável: ${!v}" || true
-        echo "${!v}"; return
+    local appid="$1" var="PROTON_${appid}"
+    if [[ -n "${!var:-}" ]]; then
+        echo "${!var}"; return
     fi
     if [[ -n "${PROTON_DEFAULT:-}" ]] && [[ -f "$PROTON_DEFAULT" ]]; then
-        $DEBUG && log_debug "OK    proton default: $PROTON_DEFAULT" || true
         echo "$PROTON_DEFAULT"; return
     fi
-    for l in "${LIBRARIES[@]}"; do
-        local pd="$l/steamapps/common"
-        [[ -d "$pd" ]] || continue
-        while IFS= read -r -d '' p; do
-            if [[ -x "$p" ]]; then
-                $DEBUG && log_debug "OK    proton encontrado: $p" || true
-                echo "$p"; return
+    for library in "${LIBRARIES[@]}"; do
+        local common_dir="$library/steamapps/common"
+        [[ -d "$common_dir" ]] || continue
+        while IFS= read -r -d '' proton_bin; do
+            if [[ -x "$proton_bin" ]]; then
+                echo "$proton_bin"; return
             fi
-        done < <(find "$pd" -maxdepth 3 -name 'proton' -type f -print0 2>/dev/null)
+        done < <(find "$common_dir" -maxdepth 3 -name 'proton' -type f -print0 2>/dev/null)
     done
-    $DEBUG && log_debug "FALHA proton não encontrado para appid $a" || true
     echo ""
 }
 
 get_proton_label() {
-    local p
-    p=$(get_proton "$1")
-    [[ -z "$p" ]] && { echo "Proton"; return; }
-    basename "$(dirname "$p")"
+    local proton_path
+    proton_path=$(get_proton "$1")
+    [[ -z "$proton_path" ]] && { echo "Proton"; return; }
+    basename "$(dirname "$proton_path")"
 }
-
 
 # ===============
 # LANÇAMENTO NATIVO
 # ===============
 
-launch_native() {
-    local a="$1" n="$2" e="$3"
-    local d
-    d=$(dirname "$e")
-    local p
-    p=$(load_params "$a") || true
-    apply_controller_mapping "$a"
+_launch_native_wait() {
+    local name="$1" pid="$2" via="$3"
+    status_box_add "${BOLINHO} ${name} (Nativo)"
+    status_box_add "${CHECK} iniciado (pid: ${pid})"
+    $DEBUG && log_debug "[OK] iniciado ${via} (pid: $pid)" || true
 
-    $DEBUG && log_debug "LAUNCH tentativa nativa: $n (appid $a)" || true
+    local frames=("." ".." "...") i=0
+    while kill -0 "$pid" 2>/dev/null; do
+        ui_log "Executando jogo ${frames[$((i % 3))]}"
+        sleep 0.5
+        i=$((i + 1))
+    done
+
+    ui_log_clear
+    loading_dots 2 "Retornando à biblioteca"
+    $DEBUG && log_debug "[OK] fechado ${via}" || true
+}
+
+launch_native() {
+    local appid="$1" name="$2" exe="$3"
+    local dir
+    dir=$(dirname "$exe")
+    local params
+    params=$(load_params "$appid") || true
+    apply_controller_mapping "$appid"
+
+    status_box_start "$name"
+    $DEBUG && log_debug "[OK] jogo iniciado: tentativa nativa para $name (appid $appid)" || true
 
     local altered=false
-    while IFS= read -r -d '' f; do
-        if [[ ! -x "$f" ]]; then
-            chmod +x "$f" 2>/dev/null || true
+    while IFS= read -r -d '' file_path; do
+        if [[ ! -x "$file_path" ]]; then
+            chmod +x "$file_path" 2>/dev/null || true
             altered=true
         fi
-    done < <(find "$d" -maxdepth 4 -type f \( -executable -o -name '*launcher*' \) -print0 2>/dev/null)
-    while IFS= read -r -d '' f; do
-        if file -b "$f" 2>/dev/null | grep -qi "ELF.*executable"; then
-            if [[ ! -x "$f" ]]; then
-                chmod +x "$f" 2>/dev/null || true
+    done < <(find "$dir" -maxdepth 4 -type f \( -executable -o -name '*launcher*' \) -print0 2>/dev/null)
+    while IFS= read -r -d '' file_path; do
+        if file -b "$file_path" 2>/dev/null | grep -qi "ELF.*executable"; then
+            if [[ ! -x "$file_path" ]]; then
+                chmod +x "$file_path" 2>/dev/null || true
                 altered=true
             fi
         fi
-    done < <(find "$d" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
-    local libdir="$d/lib"
+    done < <(find "$dir" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
+    local libdir="$dir/lib"
     if [[ -d "$libdir" ]] && [[ -n "$(find "$libdir" -type f ! -perm -o+w -print -quit 2>/dev/null)" ]]; then
         find "$libdir" -type f ! -perm -o+w -exec chmod +wx {} \; 2>/dev/null || true
         altered=true
     fi
-    $altered && echo -e "  ${CHECK} permissões corrigidas"
+    $DEBUG && $altered && status_box_add "${CHECK} permissões corrigidas"
 
-    [[ -z "$e" ]] && {
-        echo -e "  ${XIS} ${n} não tem binário nativo"
-        $DEBUG && log_debug "FALHA nenhum binário nativo para $n" || true
-        ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}" || true
+    [[ -z "$exe" ]] && {
+        status_box_add "${XIS} ${name} não tem binário nativo"
+        $DEBUG && log_debug "[ERROR] nenhum binário nativo para $name" || true
+        ! $DEBUG && status_box_add "${CINZA}[INFO] use -d${NC}" || true
         return
     }
 
-    local b
-    b=$(basename "$e")
-    export SteamAppId="$a" SteamGameId="$a"
+    local exe_name
+    exe_name=$(basename "$exe")
+    export SteamAppId="$appid" SteamGameId="$appid"
 
     if $DEBUG; then
-        show_params_programs_status "$p" 
-        log_debug "OK    binário: $e"
-        if [[ -z "$p" ]]; then
-            log_debug "OK    params: nenhum"
+        show_params_programs_status "$params"
+        log_debug "[OK] binário: $exe"
+        if [[ -z "$params" ]]; then
+            log_debug "[OK] params: nenhum"
         else
-            log_debug "OK    params: $p"
+            log_debug "[OK] params: $params"
         fi
-        check_deps32_status         
+        check_deps32_status
     fi
 
-    $DEBUG && log_debug "LAUNCH tentativa direta: ./$b" || true
-    exec_game "$d" "$b" "$p" "$DEBUG"
-    GAME_PID=$!; loading_dots 1
+    $DEBUG && log_debug "[OK] tentativa direta: ./$exe_name" || true
+    $DEBUG && status_box_add "tentando iniciar (nativo) .."
+    exec_game "$dir" "$exe_name" "$params" "$DEBUG"
+    GAME_PID=$!; loading_dots 1 "Aguardando"
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
-        echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
-        echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
-        $DEBUG && log_debug "OK    iniciado (pid: $GAME_PID)" || true
-        wait "$GAME_PID" 2>/dev/null || true
-        echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
-        $DEBUG && log_debug "OK    fechado (exit: $?)" || true
+        _launch_native_wait "$name" "$GAME_PID" "direto"
         GAME_PID=""; return
     fi
     wait "$GAME_PID" 2>/dev/null || true
-    $DEBUG && log_debug "FALHA tentativa direta falhou" || true
+    $DEBUG && log_debug "[ERROR] tentativa direta falhou" || true
 
-    local rt
-    rt=$(find_runtime) || true
-    if [[ -n "$rt" ]]; then
-        $DEBUG && log_debug "LAUNCH tentativa via runtime: $rt" || true
+    local runtime
+    runtime=$(find_runtime) || true
+    if [[ -n "$runtime" ]]; then
+        $DEBUG && log_debug "[OK] tentativa via runtime: $runtime" || true
+        $DEBUG && status_box_add "tentando via runtime .."
         if $DEBUG; then
-            (cd "$d"; "$rt" -- eval "./$b" $p) &
+            (cd "$dir"; "$runtime" -- eval "./$exe_name" $params) &
         else
-            (cd "$d"; "$rt" -- "./$b" $p &>/dev/null) &
+            (cd "$dir"; "$runtime" -- "./$exe_name" $params &>/dev/null) &
         fi
-        GAME_PID=$!; loading_dots 1
+        GAME_PID=$!; loading_dots 1 "Aguardando"
         if kill -0 "$GAME_PID" 2>/dev/null; then
-            echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
-            echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
-            $DEBUG && log_debug "OK    iniciado via runtime (pid: $GAME_PID)" || true
-            wait "$GAME_PID" 2>/dev/null || true
-            echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
-            $DEBUG && log_debug "OK    fechado via runtime (exit: $?)" || true
+            _launch_native_wait "$name" "$GAME_PID" "via runtime"
             GAME_PID=""; return
         fi
         wait "$GAME_PID" 2>/dev/null || true
-        $DEBUG && log_debug "FALHA tentativa via runtime falhou" || true
+        $DEBUG && log_debug "[ERROR] tentativa via runtime falhou" || true
     fi
 
-    local rest=()
-    while IFS= read -r -d '' f; do
-        file -b "$f" 2>/dev/null | grep -qi "ELF.*executable" && [[ "$f" != "$e" ]] && rest+=("$f")
-    done < <(find "$d" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+    local fallback_bins=()
+    while IFS= read -r -d '' file_path; do
+        file -b "$file_path" 2>/dev/null | grep -qi "ELF.*executable" && [[ "$file_path" != "$exe" ]] && fallback_bins+=("$file_path")
+    done < <(find "$dir" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
 
-    if [[ ${#rest[@]} -gt 0 ]]; then
-        local s="${rest[0]}" sn
-        sn=$(basename "$s")
-        $DEBUG && log_debug "LAUNCH tentativa alternativa: $sn" || true
-        exec_game "$d" "$sn" "$p" "$DEBUG"
-        GAME_PID=$!; loading_dots 1
+    if [[ ${#fallback_bins[@]} -gt 0 ]]; then
+        local fallback="${fallback_bins[0]}" fallback_name
+        fallback_name=$(basename "$fallback")
+        $DEBUG && log_debug "[OK] tentativa alternativa: $fallback_name" || true
+        $DEBUG && status_box_add "tentando alternativa: ${fallback_name} .."
+        exec_game "$dir" "$fallback_name" "$params" "$DEBUG"
+        GAME_PID=$!; loading_dots 1 "Aguardando"
         if kill -0 "$GAME_PID" 2>/dev/null; then
-            echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (Nativo)"
-            echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
-            $DEBUG && log_debug "OK    iniciado via alternativa (pid: $GAME_PID)" || true
-            wait "$GAME_PID" 2>/dev/null || true
-            echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
-            $DEBUG && log_debug "OK    fechado via alternativa (exit: $?)" || true
+            _launch_native_wait "$name" "$GAME_PID" "via alternativa"
             GAME_PID=""; return
         fi
         wait "$GAME_PID" 2>/dev/null || true
-        $DEBUG && log_debug "FALHA tentativa alternativa falhou" || true
+        $DEBUG && log_debug "[ERROR] tentativa alternativa falhou" || true
     fi
 
-    echo -e "  ${XIS} ${NEGRITO}${n}${NC} não iniciou"
-    $DEBUG && log_debug "FALHA $n não iniciou (todas as tentativas falharam)" || true
-    ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}" || true
+    status_box_add "${XIS} ${name} não iniciou"
+    $DEBUG && log_debug "[ERROR] $name não iniciou (todas as tentativas falharam)" || true
+    ! $DEBUG && status_box_add "${CINZA}[INFO] use -d${NC}" || true
     GAME_PID=""
 }
 
@@ -302,80 +290,45 @@ launch_native() {
 # ===============
 
 launch_proton() {
-    local a="$1" n="$2" e="$3"
-    local d
-    d=$(dirname "$e")
-    local p
-    p=$(load_params "$a") || true
-    apply_controller_mapping "$a"
-    local pl
-    pl=$(get_proton_label "$a")
+    local appid="$1" name="$2" exe="$3"
+    local dir; dir=$(dirname "$exe")
+    local params; params=$(load_params "$appid") || true
+    apply_controller_mapping "$appid"
+    local proton_label; proton_label=$(get_proton_label "$appid")
 
-    $DEBUG && log_debug "LAUNCH tentativa proton: $n (appid $a)" || true
+    status_box_start "$name"
+    [[ -z "$exe" ]] && { status_box_add "${XIS} .exe não encontrado"; return; }
 
-    [[ -z "$e" ]] && {
-        echo -e "  ${XIS} .exe não encontrado para ${NEGRITO}${n}${NC}"
-        $DEBUG && log_debug "FALHA .exe não encontrado para ${n}" || true
-        ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}" || true
-        return
-    }
+    local proton_bin; proton_bin=$(get_proton "$appid")
+    [[ -z "$proton_bin" ]] || [[ ! -f "$proton_bin" ]] && { status_box_add "${XIS} Proton não encontrado"; return; }
 
-    local pr
-    pr=$(get_proton "$a")
+    local library_root="${dir%%/steamapps/common/*}"
+    local compat_data_dir="$library_root/steamapps/compatdata/$appid"
 
-    [[ -z "$pr" ]] || [[ ! -f "$pr" ]] && {
-        echo -e "  ${XIS} Proton não encontrado para ${NEGRITO}${n}${NC}"
-        echo -e "  ${CINZA}[INFO] configure ${CONFIG_DIR}/proton.conf${NC}"
-        $DEBUG && log_debug "FALHA Proton não encontrado para ${a}" || true
-        read -p "  Enter para voltar..."; return
-    }
-
-    local cd="${d%%/common/$i}/compatdata/$a"
-
-    if $DEBUG; then
-        log_debug "OK    .exe: $e"
-        log_debug "OK    proton: $pr"
-        log_debug "OK    compatdata: $cd"
-        log_debug "OK    STEAM_HOME: $STEAM_HOME"
-        show_params_programs_status "$p"
-        check_deps32_status
-    fi
-
-    mkdir -p "$cd"
-    export STEAM_COMPAT_DATA_PATH="$cd"
+    mkdir -p "$compat_data_dir"
+    export STEAM_COMPAT_DATA_PATH="$compat_data_dir"
     export STEAM_COMPAT_CLIENT_INSTALL_PATH="$STEAM_HOME"
-    export SteamAppId="$a" SteamGameId="$a"
+    export SteamAppId="$appid" SteamGameId="$appid"
 
-    echo -e "  ${BOLINHO} ${NEGRITO}${n}${NC} (${pl})"
-    $DEBUG && log_debug "LAUNCH executando proton: $pr run $e" || true
+    status_box_add "${BOLINHO} ${name} (${proton_label})"
+    local proton_cmd="\"$proton_bin\" run \"$exe\""
+    [[ -n "$params" ]] && proton_cmd="${params//%command%/$proton_cmd}"
 
-    local proton_cmd="\"$pr\" run \"$e\""
-    if [[ -n "$p" ]]; then
-        if [[ "$p" == *"%command%"* ]]; then
-            proton_cmd="${p//%command%/$proton_cmd}"
-        else
-            proton_cmd="$proton_cmd $p"
-        fi
-    fi
-    if $DEBUG; then
-        eval "$proton_cmd" 2>&1 | grep -v -E '^gamemodeauto:' &
-    else
-        eval "$proton_cmd" &>/dev/null &
-    fi
-    GAME_PID=$!; loading_dots 1
+    if $DEBUG; then eval "$proton_cmd" 2>&1 | grep -v -E '^gamemodeauto:' &
+    else eval "$proton_cmd" &>/dev/null & fi
+
+    GAME_PID=$!; loading_dots 2 "Aguardando"
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
-        echo -e "  ${CHECK} iniciado (pid: ${GAME_PID})"
-        $DEBUG && log_debug "OK    iniciado via proton (pid: $GAME_PID)" || true
-        wait "$GAME_PID" 2>/dev/null || true
-        echo -e "  ${CINZA}[INFO] fechado (exit: $?)${NC}"
-        $DEBUG && log_debug "OK    fechado via proton (exit: $?)" || true
+        status_box_add "${CHECK} iniciado (pid: ${GAME_PID})"
+
+        while kill -0 "$GAME_PID" 2>/dev/null; do
+            sleep 2
+        done
+
+        loading_dots 2 "Retornando à biblioteca"
     else
-        wait "$GAME_PID" 2>/dev/null || true
-        echo -e "  ${XIS} ${NEGRITO}${n}${NC} não iniciou via Proton"
-        $DEBUG && log_debug "FALHA ${n} não iniciou via Proton" || true
-        ! $DEBUG && echo -e "  ${CINZA}[INFO] use -d${NC}" || true
+        status_box_add "${XIS} não iniciou via Proton"
     fi
     GAME_PID=""
 }
-
