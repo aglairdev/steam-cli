@@ -108,11 +108,19 @@ find_linux_exe() {
 
 find_runtime() {
     for library in "${LIBRARIES[@]}"; do
-        for runtime_name in "SteamLinuxRuntime_sniper" "SteamLinuxRuntime_4" "SteamLinuxRuntime"; do
+        local scout_dir="$library/steamapps/common/SteamLinuxRuntime"
+        local scout_bin="$scout_dir/scout-on-soldier-entry-point-v2"
+        if [[ -x "$scout_bin" ]]; then
+            echo "$scout_bin"
+            $DEBUG && log_debug "[OK] runtime: $scout_bin" || true
+            return 0
+        fi
+        for runtime_name in "SteamLinuxRuntime_sniper" "SteamLinuxRuntime_4"; do
             local bin="$library/steamapps/common/$runtime_name/run"
             if [[ -x "$bin" ]]; then
+                echo "$bin"
                 $DEBUG && log_debug "[OK] runtime: $bin" || true
-                echo "$bin"; return 0
+                return 0
             fi
         done
     done
