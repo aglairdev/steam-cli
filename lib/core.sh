@@ -5,7 +5,7 @@
 # CONFIGURAÇÃO
 # ===============
 
-VERSION="2.0.0"
+VERSION="2.0.1"
 AGL="ꕤ"
 
 STEAM_HOME=""
