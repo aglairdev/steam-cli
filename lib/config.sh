@@ -46,7 +46,19 @@ EOC
 
 load_params() {
     local file="$CONFIG_DIR/params/$1"
-    [[ -f "$file" ]] && cat "$file"
+    [[ -f "$file" ]] || return
+    local raw
+    raw=$(cat "$file")
+    local clean="" i char code
+    for (( i=0; i<${#raw} && i<200; i++ )); do
+        char="${raw:$i:1}"
+        code=$(printf '%d' "'$char" 2>/dev/null || echo -1)
+        (( code >= 32 && code != 127 )) && clean+="$char"
+    done
+    if [[ "$clean" != "$raw" ]]; then
+        if [[ -n "$clean" ]]; then echo "$clean" > "$file"; else rm -f "$file"; fi
+    fi
+    echo "$clean"
 }
 
 save_params() {

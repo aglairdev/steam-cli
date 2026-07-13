@@ -11,6 +11,7 @@ strip_ansi() {
 
 display_width() {
     local str="$1" width=0 i char_code
+    (( ${#str} > 500 )) && str="${str:0:500}"
     for (( i=0; i<${#str}; i++ )); do
         char_code=$(printf '%d' "'${str:$i:1}" 2>/dev/null || echo 0)
         if (( char_code >= 0xF0000 )); then
@@ -24,6 +25,7 @@ display_width() {
 
 truncate_name() {
     local name="$1" max="${2:-24}"
+    (( ${#name} > 500 )) && name="${name:0:500}"
     local width
     width=$(display_width "$name")
     if (( width <= max )); then
@@ -345,6 +347,12 @@ _read_input_key() {
 
 INPUT_RESULT=""
 
+_is_safe_char() {
+    local c="$1" code
+    code=$(printf '%d' "'$c" 2>/dev/null || echo -1)
+    (( code >= 32 && code != 127 ))
+}
+
 box_read_input() {
     local draw_fn="$1"
     local value=""
@@ -370,9 +378,20 @@ box_read_input() {
             LEFT) value=""; break ;;
             BACKSPACE) value="${value%?}"; need_redraw=true ;;
             CHAR:*)
-                value+="${action#CHAR:}"
-                while IFS= read -rsn1 -t 0.001 next_char; do
-                    value+="$next_char"
+                local new_char="${action#CHAR:}"
+                if _is_safe_char "$new_char"; then
+                    value+="$new_char"
+                    (( ${#value} > 200 )) && value="${value:0:200}"
+                fi
+                local drained=0
+                while (( drained < 50 )) && IFS= read -rsn1 -t 0.001 next_char; do
+                    if [[ "$next_char" == $'\x1b' ]]; then
+                        IFS= read -rsn2 -t 0.02 _ 2>/dev/null || true
+                    elif _is_safe_char "$next_char"; then
+                        value+="$next_char"
+                        (( ${#value} > 200 )) && value="${value:0:200}"
+                    fi
+                    drained=$((drained+1))
                 done
                 need_redraw=true
                 ;;
