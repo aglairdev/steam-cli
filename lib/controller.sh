@@ -55,15 +55,19 @@ apply_controller_mapping() {
 }
 
 detect_controllers() {
-    local devices=()
-    while IFS= read -r joystick; do
-        if [[ -e "$joystick" ]]; then
-            local name
-            name=$(cat "/sys/class/input/$(basename "$joystick")/device/name" 2>/dev/null || echo "Desconhecido")
-            devices+=("$name")
+    local devices=() name="" handlers=""
+    [[ -f /proc/bus/input/devices ]] || { printf '%s\n' "${devices[@]}"; return; }
+    while IFS= read -r line; do
+        if [[ $line =~ ^N:\ Name=\"(.*)\" ]]; then
+            name="${BASH_REMATCH[1]}"
+        elif [[ $line =~ ^H:\ Handlers=(.*) ]]; then
+            handlers="${BASH_REMATCH[1]}"
+            if [[ $handlers =~ (js[0-9]+) ]]; then
+                devices+=("$name")
+            fi
+            name=""; handlers=""
         fi
-    done < <(ls /dev/input/js* 2>/dev/null)
-
+    done < /proc/bus/input/devices
     printf '%s\n' "${devices[@]}" | sort -u
 }
 
