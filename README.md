@@ -19,28 +19,10 @@ Gerenciador de jogos Steam no terminal, com lançamento nativo e via Proton.
 
 </div>
 
-## Instalação
-
-**Configurar path**
-
-*bash/zsh* (`~/.bashrc` ou `~/.zshrc`):
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-*fish* (`~/.config/fish/config.fish`):
-
-```bash
-set -Ux PATH $HOME/.local/bin $PATH
-```
-
-*Reinicie o terminal*
-
 **Instalação**
 
 ```bash
-curl -fsSL steamcli.pages.dev/install | bash
+git clone -b backup/v1.0.3 https://github.com/aglairdev/steam-tui.git 
 ```
 
 > [!CAUTION]
@@ -57,7 +39,7 @@ curl -fsSL steamcli.pages.dev/install | bash
 ## Uso
 
 ```bash
-steam-cli
+bash steam-cli.sh
 ```
 
 ### Flags
@@ -88,15 +70,8 @@ steam-cli
 
 ## Atualização
 
-O script verifica atualizações ao iniciar:
-
-```
-  ꕤ nova versão: v1.0.1 (atual: v1.0.0)
------------------------------------------------
-  Atualizar? (s/N):
-```
-
-Responda `s` para baixar e reiniciar automaticamente.
+> [!TIP]
+> Atualizações funcionam a partir da [v2.0.0](https://github.com/aglairdev/steam-tui/tree/main)
 
 ## Remoção
 
