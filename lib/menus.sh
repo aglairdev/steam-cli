@@ -105,6 +105,7 @@ show_game_menu() {
             3)
                 if confirm_dialog "Excluir" "Excluir ${name}?"; then
                     $DEBUG && log_debug "[OK] removendo jogo: $name (appid $appid)" || true
+                    loading_dots 3 "Removendo ${name}"
                     rm -rf "$library/steamapps/common/$installdir" 2>/dev/null || true
                     rm -f "$library/steamapps/appmanifest_${appid}.acf" 2>/dev/null || true
                     rm -rf "$library/steamapps/compatdata/$appid" 2>/dev/null || true
