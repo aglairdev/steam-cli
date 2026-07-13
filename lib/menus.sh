@@ -445,8 +445,8 @@ show_library_menu() {
             box_row_blank
         fi
         box_bottom
-        render_footer "$allow_back"
-        box_row_search "$search_query" "$search_mode"
+        box_row_search "$search_query" "$search_mode" 
+        render_footer "$allow_back"                    
     }
 
     while true; do
@@ -472,15 +472,17 @@ show_library_menu() {
                 case "$action" in
                     RESIZE) dirty=true ;;
                     IDLE|IGNORE) : ;;
-                    UP)   (( total > 0 )) && { sel=$(( (sel - 1 + total) % total )); dirty=true; } ;;
-                    DOWN) (( total > 0 )) && { sel=$(( (sel + 1) % total )); dirty=true; } ;;
+                    UP)   (( total > 0 )) && { ui_log_clear; sel=$(( (sel - 1 + total) % total )); dirty=true; } ;;
+                    DOWN) (( total > 0 )) && { ui_log_clear; sel=$(( (sel + 1) % total )); dirty=true; } ;;
                     LEFT)
+                        ui_log_clear
                         search_mode=false
                         search_query=""
                         _library_filter_indices ""
                         sel=0
                         dirty=true ;;
                     BACKSPACE)
+                        ui_log_clear
                         search_query="${search_query%?}"
                         _library_filter_indices "$search_query"
                         sel=0
@@ -491,6 +493,7 @@ show_library_menu() {
                     CHAR:*)
                         local new_char="${action#CHAR:}"
                         if _is_safe_char "$new_char"; then
+                            ui_log_clear
                             search_query+="$new_char"
                             _library_filter_indices "$search_query"
                             sel=0
@@ -503,9 +506,9 @@ show_library_menu() {
                 case "$action" in
                     RESIZE) dirty=true ;;
                     IDLE) : ;;
-                    UP)   (( total > 0 )) && { sel=$(( (sel - 1 + total) % total )); dirty=true; } ;;
-                    DOWN) (( total > 0 )) && { sel=$(( (sel + 1) % total )); dirty=true; } ;;
-                    LEFT) return ;;
+                    UP)   (( total > 0 )) && { ui_log_clear; sel=$(( (sel - 1 + total) % total )); dirty=true; } ;;
+                    DOWN) (( total > 0 )) && { ui_log_clear; sel=$(( (sel + 1) % total )); dirty=true; } ;;
+                    LEFT) ui_log_clear; return ;;
                     CHAR:/)
                         search_mode=true
                         dirty=true ;;
