@@ -459,7 +459,9 @@ confirm_dialog() {
         render_logo
         box_top
         box_mid "$title"
-        box_row "  ${question}" "  ${NEGRITO}${question}${NC}"
+        local question_display
+        question_display=$(truncate_name "$question" $((BOXW - 4)))
+        box_row "  ${question_display}" "  ${NEGRITO}${question_display}${NC}"
         box_row_blank
         box_items "$sel" "Não" "Sim"
         box_bottom
