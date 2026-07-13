@@ -1,6 +1,11 @@
 <div align="center">
 
-<img width="300" height="100" alt="logo" src="https://github.com/user-attachments/assets/acdfcb2a-4468-4c24-9667-538364c77eee" />
+<a href="https://github.com/aglairdev/steam-tui">
+  <img width="500" height="100" alt="logotipo steam-tui"
+       src="https://github.com/user-attachments/assets/af6464f6-6fd5-45d5-a047-d79983504040" />
+</a>
+
+<hr>
 
 [![Release](https://img.shields.io/github/v/release/aglairdev/steam-tui?style=for-the-badge&color=94baf2&label=release)](https://github.com/aglairdev/steam-tui/releases)
 [![OS](https://img.shields.io/badge/OS-Linux-94baf2?style=for-the-badge&logo=linux&logoColor=white)](#requisitos)
