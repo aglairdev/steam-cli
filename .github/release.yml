@@ -1,4 +1,10 @@
 changelog:
   categories:
-    - title: "🔧 Refactors"
+    - title: "Novidades"
+      labels: ["enhancement"]
+    - title: "Correções"
+      labels: ["bug"]
+    - title: "Refatorações"
       labels: ["refactor"]
+    - title: "Documentação"
+      labels: ["documentation"]
