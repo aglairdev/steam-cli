@@ -40,67 +40,93 @@ EOC
     source "$DEPS_CONF"
 }
 
-
 # ===============
 # PARÂMETROS
 # ===============
 
 load_params() {
-    local f="$CONFIG_DIR/params/$1"
-    [[ -f "$f" ]] && cat "$f"
+    local file="$CONFIG_DIR/params/$1"
+    [[ -f "$file" ]] && cat "$file"
 }
 
 save_params() {
-    local f="$CONFIG_DIR/params/$1"
-    if [[ -n "$2" ]]; then echo "$2" > "$f"
-    elif [[ -f "$f" ]]; then rm "$f"; fi
+    local file="$CONFIG_DIR/params/$1"
+    if [[ -n "$2" ]]; then echo "$2" > "$file"
+    elif [[ -f "$file" ]]; then rm "$file"; fi
 }
 
 edit_params() {
-    local a="$1" n="$2"
-    local c=""
-    c=$(load_params "$a" 2>/dev/null) || true
+    local appid="$1" name="$2"
+    local current_value=""
+    current_value=$(load_params "$appid" 2>/dev/null) || true
 
-    while true; do
-        clear
-        echo ""
-        local debug_tag=""
-        $DEBUG && debug_tag="[DEBUG] " || true
-        echo -e "  ${CINZA}${debug_tag}v${VERSION} // steam-tui ${AGL}${NC}"
+    _current_display() {
+        local val="$1" max
+        max=$(( BOXW - 12 ))
+        (( max < 8 )) && max=8
+        [[ -z "$val" ]] && { echo "(vazio)"; return; }
+        truncate_name "$val" "$max"
+    }
+
+    _draw_params_screen() {
+        local sel="$1" allow_back="$2"
+        render_logo
         box_top
         box_mid "Parâmetros"
-        box_row "  ${n}" "  ${NEGRITO}${n}${NC}"
-        local c_show="$c"
-        [[ ${#c_show} -gt 36 ]] && c_show="${c_show:0:33}..."
-        box_row "  Atual:${c_show:-(vazio)}" "  Atual:${CINZA}${c_show:-(vazio)}${NC}"
-        box_row ""
-        box_row "  [1]  Editar" "  [${AMARELO}1${NC}]  Editar"
-        box_row "  [2]  Limpar" "  [${VERMELHO}2${NC}]  Limpar"
-        box_mid "Sair"
-        box_row "  [0]  Voltar"
+        local name_display
+        name_display=$(truncate_name "$name" $((BOXW - 6)))
+        box_row "  ${name_display}" "  ${NEGRITO}${name_display}${NC}"
+        local current_display
+        current_display=$(_current_display "$current_value")
+        box_row "  Atual: ${current_display}" "  Atual: ${CINZA}${current_display}${NC}"
+        box_row_blank
+        box_items "$sel" "Editar" "Resetar"
         box_bottom
-        debug_flush
-        echo ""
-        read -p " > " opt
-        case "$opt" in
+        render_footer "$allow_back"
+    }
+
+    while true; do
+        run_menu 2 _draw_params_screen true
+        case "$MENU_RESULT" in
+            BACK) return ;;
+            0)
+                ui_log_clear
+                _draw_edit_input() {
+                    local val="$1"
+                    box_init
+                    render_logo
+                    box_top
+                    box_mid "Editar Parâmetro"
+                    local name_display
+                    name_display=$(truncate_name "$name" $((BOXW - 6)))
+                    box_row "  ${name_display}" "  ${NEGRITO}${name_display}${NC}"
+                    local current_display
+                    current_display=$(_current_display "$current_value")
+                    box_row "  Atual: ${current_display}" "  Atual: ${CINZA}${current_display}${NC}"
+                    box_row_blank
+                    box_row_input "$val"
+                    box_row_blank
+                    box_row_hint
+                    box_bottom
+                }
+                local new_value
+                box_read_input _draw_edit_input
+                new_value="$INPUT_RESULT"
+                if [[ -n "$new_value" ]]; then
+                    save_params "$appid" "$new_value"
+                    current_value="$new_value"
+                    $DEBUG && log_debug "[OK] param salvo: $new_value (appid $appid)" || true
+                    status_box_start "Parâmetros"
+                    status_box_add "${CHECK} parâmetro salvo"
+                    auto_return_delay 1.2
+                fi ;;
             1)
-                echo ""
-                echo -e "  Atual:  ${CINZA}${c}${NC}\n"
-                read -e -p " > " novo
-                if [[ -n "$novo" ]]; then
-                    save_params "$a" "$novo"
-                    c="$novo"
-                    $DEBUG && log_debug "OK    param salvo: $novo (appid $a)" || true
-                    echo -e "  ${CHECK} parâmetro salvo"
-                fi ; true ;;
-            2)
-                save_params "$a" ""
-                c=""
-                $DEBUG && log_debug "OK    param limpo (appid $a)" || true
-                echo -e "  ${CHECK} parâmetro limpo" ; true ;;
-            0) return ;;
-            *) invalid_option ;;
+                save_params "$appid" ""
+                current_value=""
+                $DEBUG && log_debug "[OK] param limpo (appid $appid)" || true
+                status_box_start "Parâmetros"
+                status_box_add "${CHECK} parâmetro resetado"
+                auto_return_delay 1.2 ;;
         esac
     done
 }
-
