@@ -194,6 +194,16 @@ check_update() {
             chmod +x "$tmp"
             cat "$tmp" > "$0"
             rm -f "$tmp"
+
+            local LIB_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/lib"
+            local LIB_MODULES=(core.sh responsiveness.sh ui.sh logo.sh config.sh deps.sh steam.sh games.sh controller.sh menus.sh)
+            for module in "${LIB_MODULES[@]}"; do
+                curl -sL -f "$LIB_URL/$module" -o "$SCRIPT_DIR/lib/$module" || {
+                    ui_log "${XIS} falha ao atualizar ${module}"
+                    rm -f "$tmp"; return
+                }
+            done
+
             ui_log "${CHECK} atualizado, reiniciando"
             exec "$0" "$@"
         else
@@ -202,7 +212,6 @@ check_update() {
         fi
     fi
 }
-
 # ===============
 # BAIXAR JOGOS
 # ===============

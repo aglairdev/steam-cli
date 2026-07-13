@@ -100,7 +100,8 @@ setup_nerd_font() {
 
 setup_nerd_font
 
-echo -e "  Estabelecendo conexão com o repositório..."
+loading_dots 2 "Estabelecendo conexão com o repositório"
+echo -e "  ${VERDE}${CHECK}${NC} Conexão com repositória estabelecida"
 
 # ===============
 # DEPENDÊNCIAS
@@ -140,6 +141,18 @@ check_deps
 
 mkdir -p "$DIR_BIN"
 mkdir -p "$DIR_CONF/params"
+
+mkdir -p "$DIR_CONF/lib"
+
+LIB_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/lib"
+LIB_MODULES=(core.sh responsiveness.sh ui.sh logo.sh config.sh deps.sh steam.sh games.sh controller.sh menus.sh)
+
+for module in "${LIB_MODULES[@]}"; do
+    curl -L -f "$LIB_URL/$module" -o "$DIR_CONF/lib/$module" --silent || {
+        echo -e "  ${VERMELHO}${XIS} Falha ao baixar ${module}.${NC}"
+        exit 1
+    }
+done
 
 loading_dots 2 "Baixando steam-tui"
 HTTP_STATUS=$(curl -L -w "%{http_code}" "$REPO_URL" -o "$DIR_CONF/$BIN_NAME.sh" --silent)
