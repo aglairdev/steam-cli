@@ -94,6 +94,14 @@ find_linux_exe() {
     fi
     if [[ -z "$candidate" ]]; then
         for elf in "${elfs[@]}"; do
+            local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
+            if [[ "$elf_name" == *x86_64* ]] || [[ "$elf_name" == *amd64* ]]; then
+                candidate="$elf"; break
+            fi
+        done
+    fi
+    if [[ -z "$candidate" ]]; then
+        for elf in "${elfs[@]}"; do
             if [[ -x "$elf" ]]; then
                 candidate="$elf"; break
             fi
@@ -265,9 +273,14 @@ launch_native() {
         check_deps32_status
     fi
 
+    local skip_runtime=false rt_id
+    for rt_id in "${RUNTIME_INCOMPATIBLE_APPIDS[@]}"; do
+        [[ "$rt_id" == "$appid" ]] && { skip_runtime=true; break; }
+    done
+
     local runtime
     runtime=$(find_runtime) || true
-    if [[ -n "$runtime" ]]; then
+    if [[ -n "$runtime" ]] && ! $skip_runtime; then
         $DEBUG && log_debug "[OK] tentativa via runtime: $runtime" || true
         $DEBUG && status_box_add "tentando via runtime .."
         if $DEBUG; then
