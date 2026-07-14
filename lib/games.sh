@@ -160,6 +160,15 @@ get_proton_label() {
 }
 
 # ===============
+# HISTÓRICO PRÓPRIO
+# ===============
+
+mark_played() {
+    mkdir -p "$CONFIG_DIR/lastplayed"
+    date +%s > "$CONFIG_DIR/lastplayed/$1"
+}
+
+# ===============
 # LANÇAMENTO NATIVO
 # ===============
 
@@ -242,6 +251,7 @@ launch_native() {
     GAME_PID=$!; loading_dots 1 "Aguardando"
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
+        mark_played "$appid"
         _launch_native_wait "$name" "$GAME_PID" "direto"
         GAME_PID=""; return
     fi
@@ -260,6 +270,7 @@ launch_native() {
         fi
         GAME_PID=$!; loading_dots 1 "Aguardando"
         if kill -0 "$GAME_PID" 2>/dev/null; then
+            mark_played "$appid"
             _launch_native_wait "$name" "$GAME_PID" "via runtime"
             GAME_PID=""; return
         fi
@@ -280,6 +291,7 @@ launch_native() {
         exec_game "$dir" "$fallback_name" "$params" "$DEBUG"
         GAME_PID=$!; loading_dots 1 "Aguardando"
         if kill -0 "$GAME_PID" 2>/dev/null; then
+            mark_played "$appid"
             _launch_native_wait "$name" "$GAME_PID" "via alternativa"
             GAME_PID=""; return
         fi
@@ -329,6 +341,7 @@ launch_proton() {
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
         status_box_add "${CHECK} iniciado (pid: ${GAME_PID})"
+        mark_played "$appid"
 
         while kill -0 "$GAME_PID" 2>/dev/null; do
             sleep 2
