@@ -8,11 +8,11 @@
 <hr>
 
 [![Release](https://img.shields.io/github/v/release/aglairdev/steam-tui?style=for-the-badge&color=94baf2&label=release)](https://github.com/aglairdev/steam-tui/releases)
-[![OS](https://img.shields.io/badge/OS-Linux-94baf2?style=for-the-badge&logo=linux&logoColor=white)](#requisitos)
+![OS](https://img.shields.io/badge/OS-Linux-94baf2?style=for-the-badge&logo=linux&logoColor=white)
 [![License](https://img.shields.io/github/license/aglairdev/steam-tui?style=for-the-badge&color=94baf2)](LICENSE)
-[![Bash](https://img.shields.io/badge/Bash-94baf2?style=for-the-badge&logo=gnubash&logoColor=black)](#)
+![Bash](https://img.shields.io/badge/%3C%2F%3E-Bash-94baf2?style=for-the-badge)
 
-Gerenciador de jogos steam no terminal.
+Biblioteca steam TUI.
 
 </div>
 
@@ -106,15 +106,13 @@ steam-tui
 
 ## Atualização
 
-O script verifica novas releases automaticamente ao iniciar:
+O script verifica novas versões ao iniciar:
 
 ```
-  ꕤ nova versão: v2.0.0 (atual: v1.0.3)
------------------------------------------------
-  Atualizar? (s/N):
+Nova versão v2.0.3 disponível (atual v2.0.2). Atualizar?
+> Não
+> Sim
 ```
-
-Responda `s` para baixar e reiniciar automaticamente.
 
 ## Remoção
 
