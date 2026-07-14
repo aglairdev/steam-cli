@@ -61,12 +61,22 @@ find_linux_exe() {
     local dir="$library/steamapps/common/$installdir"
     [[ -d "$dir" ]] || { $DEBUG && log_debug "[ERROR] diretório não encontrado: $dir"; return 1; }
     local installdir_lower="${installdir,,}" elfs=()
+    local candidates=()
     while IFS= read -r -d '' file_path; do
         case "${file_path,,}" in
             *.dll|*.so|*.so.*|*.dat|*.rgssad|*.ini|*.txt|*.png|*.cfg|*.conf) continue ;;
         esac
-        file -b "$file_path" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$file_path")
+        candidates+=("$file_path")
     done < <(find "$dir" -maxdepth 4 -type f -print0 2>/dev/null)
+
+    if (( ${#candidates[@]} > 0 )); then
+        local file_output i=0 desc
+        file_output=$(file -b -- "${candidates[@]}" 2>/dev/null)
+        while IFS= read -r desc; do
+            [[ "$desc" =~ ELF.*executable ]] && elfs+=("${candidates[$i]}")
+            i=$((i+1))
+        done <<< "$file_output"
+    fi
     local candidate=""
     for elf in "${elfs[@]}"; do
         local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
@@ -134,6 +144,9 @@ find_runtime() {
 # PROTON
 # ===============
 
+PROTON_BIN_CACHE=""
+PROTON_BIN_CACHE_SET=false
+
 get_proton() {
     local appid="$1" var="PROTON_${appid}"
     if [[ -n "${!var:-}" ]]; then
@@ -142,15 +155,20 @@ get_proton() {
     if [[ -n "${PROTON_DEFAULT:-}" ]] && [[ -f "$PROTON_DEFAULT" ]]; then
         echo "$PROTON_DEFAULT"; return
     fi
+    if $PROTON_BIN_CACHE_SET; then
+        echo "$PROTON_BIN_CACHE"; return
+    fi
     for library in "${LIBRARIES[@]}"; do
         local common_dir="$library/steamapps/common"
         [[ -d "$common_dir" ]] || continue
         while IFS= read -r -d '' proton_bin; do
             if [[ -x "$proton_bin" ]]; then
+                PROTON_BIN_CACHE="$proton_bin"; PROTON_BIN_CACHE_SET=true
                 echo "$proton_bin"; return
             fi
         done < <(find "$common_dir" -maxdepth 3 -name 'proton' -type f -print0 2>/dev/null)
     done
+    PROTON_BIN_CACHE=""; PROTON_BIN_CACHE_SET=true
     echo ""
 }
 

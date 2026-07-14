@@ -10,41 +10,20 @@ strip_ansi() {
 }
 
 display_width() {
-    local str="$1" width=0 i char_code
+    local str="$1"
     (( ${#str} > 500 )) && str="${str:0:500}"
-    for (( i=0; i<${#str}; i++ )); do
-        char_code=$(printf '%d' "'${str:$i:1}" 2>/dev/null || echo 0)
-        if (( char_code >= 0xF0000 )); then
-            width=$((width+2))
-        else
-            width=$((width+1))
-        fi
-    done
-    echo "$width"
+    echo "${#str}"
 }
 
 truncate_name() {
     local name="$1" max="${2:-24}"
     (( ${#name} > 500 )) && name="${name:0:500}"
-    local width
-    width=$(display_width "$name")
-    if (( width <= max )); then
+    if (( ${#name} <= max )); then
         echo "$name"
     else
-        local truncated="" current_width=0 i
-        for (( i=0; i<${#name}; i++ )); do
-            local char="${name:$i:1}"
-            local char_code
-            char_code=$(printf '%d' "'$char" 2>/dev/null || echo 0)
-            local char_width=1
-            (( char_code >= 0xF0000 )) && char_width=2
-            if (( current_width + char_width + 3 > max )); then
-                break
-            fi
-            truncated+="$char"
-            current_width=$((current_width + char_width))
-        done
-        echo "${truncated}..."
+        local trunc_len=$(( max - 3 ))
+        (( trunc_len < 0 )) && trunc_len=0
+        echo "${name:0:trunc_len}..."
     fi
 }
 
