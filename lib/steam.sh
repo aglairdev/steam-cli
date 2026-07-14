@@ -190,7 +190,7 @@ check_update() {
         loading_dots 1 "Baixando v${remote_version}"
         local tmp
         tmp=$(mktemp)
-        if curl -sL --connect-timeout 10 "$MAIN_URL" -o "$tmp"; then
+        if curl -sLf --connect-timeout 10 "$MAIN_URL" -o "$tmp" && [[ -s "$tmp" ]] && head -1 "$tmp" | grep -q '^#!/'; then
             chmod +x "$tmp"
             cat "$tmp" > "$0"
             rm -f "$tmp"
@@ -198,20 +198,21 @@ check_update() {
             local LIB_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/lib"
             local LIB_MODULES=(core.sh responsiveness.sh ui.sh logo.sh config.sh deps.sh steam.sh games.sh controller.sh menus.sh)
             for module in "${LIB_MODULES[@]}"; do
-                curl -sL -f "$LIB_URL/$module" -o "$SCRIPT_DIR/lib/$module" || {
+                curl -sLf "$LIB_URL/$module" -o "$SCRIPT_DIR/lib/$module" || {
                     ui_log "${XIS} falha ao atualizar ${module}"
-                    rm -f "$tmp"; return
+                    return
                 }
             done
 
             ui_log "${CHECK} atualizado, reiniciando"
-            exec "$0" "$@"
+            exec "$SCRIPT_DIR/$(basename "$0")" "$@"
         else
-            ui_log "${XIS} falha no download"
+            ui_log "${XIS} download inválido, update abortado"
             rm -f "$tmp"
         fi
     fi
 }
+
 # ===============
 # BAIXAR JOGOS
 # ===============
