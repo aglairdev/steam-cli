@@ -99,10 +99,13 @@ scan_games() {
             local game_dir="$library/steamapps/common/$installdir"
             if [[ -d "$game_dir" ]]; then
                 while IFS= read -r -d '' bin; do
+                    case "${bin,,}" in
+                        *.dll|*.so|*.so.*|*.dat|*.rgssad|*.ini|*.txt|*.png|*.cfg|*.conf) continue ;;
+                    esac
                     if file -b "$bin" 2>/dev/null | grep -qi "ELF.*executable"; then
                         platform="linux"; break
                     fi
-                done < <(find "$game_dir" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+                done < <(find "$game_dir" -maxdepth 1 -type f -print0 2>/dev/null)
             fi
             temp+=("$timestamp|$appid|$name|$installdir|$library|$platform|${playtime:-0}")
         done < <(find "$steamapps_dir" -maxdepth 1 -name 'appmanifest_*.acf' \

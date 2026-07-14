@@ -62,9 +62,11 @@ find_linux_exe() {
     [[ -d "$dir" ]] || { $DEBUG && log_debug "[ERROR] diretório não encontrado: $dir"; return 1; }
     local installdir_lower="${installdir,,}" elfs=()
     while IFS= read -r -d '' file_path; do
+        case "${file_path,,}" in
+            *.dll|*.so|*.so.*|*.dat|*.rgssad|*.ini|*.txt|*.png|*.cfg|*.conf) continue ;;
+        esac
         file -b "$file_path" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$file_path")
-    done < <(find "$dir" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
-
+    done < <(find "$dir" -maxdepth 4 -type f -print0 2>/dev/null)
     local candidate=""
     for elf in "${elfs[@]}"; do
         local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
@@ -245,19 +247,6 @@ launch_native() {
         check_deps32_status
     fi
 
-    $DEBUG && log_debug "[OK] tentativa direta: ./$exe_name" || true
-    $DEBUG && status_box_add "tentando iniciar (nativo) .."
-    exec_game "$dir" "$exe_name" "$params" "$DEBUG"
-    GAME_PID=$!; loading_dots 1 "Aguardando"
-
-    if kill -0 "$GAME_PID" 2>/dev/null; then
-        mark_played "$appid"
-        _launch_native_wait "$name" "$GAME_PID" "direto"
-        GAME_PID=""; return
-    fi
-    wait "$GAME_PID" 2>/dev/null || true
-    $DEBUG && log_debug "[ERROR] tentativa direta falhou" || true
-
     local runtime
     runtime=$(find_runtime) || true
     if [[ -n "$runtime" ]]; then
@@ -277,6 +266,19 @@ launch_native() {
         wait "$GAME_PID" 2>/dev/null || true
         $DEBUG && log_debug "[ERROR] tentativa via runtime falhou" || true
     fi
+
+    $DEBUG && log_debug "[OK] tentativa direta: ./$exe_name" || true
+    $DEBUG && status_box_add "tentando iniciar (nativo) .."
+    exec_game "$dir" "$exe_name" "$params" "$DEBUG"
+    GAME_PID=$!; loading_dots 1 "Aguardando"
+
+    if kill -0 "$GAME_PID" 2>/dev/null; then
+        mark_played "$appid"
+        _launch_native_wait "$name" "$GAME_PID" "direto"
+        GAME_PID=""; return
+    fi
+    wait "$GAME_PID" 2>/dev/null || true
+    $DEBUG && log_debug "[ERROR] tentativa direta falhou" || true
 
     local fallback_bins=()
     while IFS= read -r -d '' file_path; do
