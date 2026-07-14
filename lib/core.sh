@@ -15,7 +15,7 @@ DEBUG=false
 DEBUG_LOG=""
 
 CORE_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/lib/core.sh"
-MAIN_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/steam-tui.sh"
+MAIN_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/steam-tui"
 
 TOOLS_APPIDS=(1070560 1493710 1628350 2180100 228980 4183110)
 EXTERNAL_PROGRAMS=("gamemoderun" "mangohud")

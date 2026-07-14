@@ -4,10 +4,10 @@
 # © 2026 steam-tui ~ AGL ~ github.com/aglairdev
 # Licença: MIT
 #
-# uso:  ./steam-tui.sh
-#       ./steam-tui.sh -d     #debug
-#       ./steam-tui.sh -v     #versão
-#       ./steam-tui.sh -h     #ajuda
+# uso:  ./steam-tui
+#       ./steam-tui -d     #debug
+#       ./steam-tui -v     #versão
+#       ./steam-tui -h     #ajuda
 #
 
 set -euo pipefail
@@ -37,7 +37,7 @@ main() {
             -d|--debug) DEBUG=true; DEBUG_MODE=true ;;
             -v|--version) echo -e "  ${AGL} steam-tui v${VERSION}"; exit 0 ;;
             -h|--help)
-                echo "uso: ./steam-tui.sh [-d] [-v] [-h]"
+                echo "uso: ./steam-tui [-d] [-v] [-h]"
                 echo "  -d  mostra output completo (nativo + proton)"
                 echo "  -v  mostra versão"
                 echo "  -h  mostra ajuda"

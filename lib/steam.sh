@@ -196,7 +196,7 @@ check_update() {
         loading_dots 1 "Baixando v${remote_version}"
         curl -fsSL https://steamcli.pages.dev/install | bash
         ui_log "${CHECK} atualizado, reiniciando"
-        exec "$CONFIG_DIR/steam-tui.sh" "$@"
+        exec "$CONFIG_DIR/steam-tui" "$@"
     fi
 }
 

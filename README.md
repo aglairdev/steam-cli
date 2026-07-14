@@ -91,8 +91,8 @@ steam-tui
 
 ```
 ~/.config/steam-tui/
+├── steam-tui                # script principal
 ├── proton.conf              # proton global e por AppID
-├── debug.log                # logs do modo debug
 ├── params/
 │   └── <appid>              # parâmetros de lançamento por jogo
 ├── controle/
@@ -102,6 +102,17 @@ steam-tui
 │   └── gamepad-tool/        # binário e versão do gamepad-tool
 ├── lastplayed/
 │   └── <appid>              # timestamp do último jogado
+├── lib/
+│   ├── core.sh
+│   ├── responsiveness.sh
+│   ├── ui.sh
+│   ├── logo.sh
+│   ├── config.sh
+│   ├── deps.sh
+│   ├── steam.sh
+│   ├── games.sh
+│   ├── controller.sh
+│   └── menus.sh
 └── deps/
     └── deps.conf            # pacotes de dependências por distro
 ```
