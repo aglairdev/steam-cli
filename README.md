@@ -100,6 +100,8 @@ steam-tui
 │   ├── jogos/
 │   │   └── <appid>          # suporte nativo / mapeamento por jogo
 │   └── gamepad-tool/        # binário e versão do gamepad-tool
+├── lastplayed/
+│   └── <appid>              # timestamp do último jogado
 └── deps/
     └── deps.conf            # pacotes de dependências por distro
 ```
