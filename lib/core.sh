@@ -19,6 +19,7 @@ MAIN_URL="https://raw.githubusercontent.com/aglairdev/steam-tui/main/steam-tui.s
 
 TOOLS_APPIDS=(1070560 1493710 1628350 2180100 228980 4183110)
 EXTERNAL_PROGRAMS=("gamemoderun" "mangohud")
+RUNTIME_INCOMPATIBLE_APPIDS=(504230)
 
 CONTROLLER_DIR="$CONFIG_DIR/controle"
 CONTROLLERS_DIR="$CONTROLLER_DIR/jogos"

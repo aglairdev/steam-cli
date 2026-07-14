@@ -61,10 +61,22 @@ find_linux_exe() {
     local dir="$library/steamapps/common/$installdir"
     [[ -d "$dir" ]] || { $DEBUG && log_debug "[ERROR] diretório não encontrado: $dir"; return 1; }
     local installdir_lower="${installdir,,}" elfs=()
+    local candidates=()
     while IFS= read -r -d '' file_path; do
-        file -b "$file_path" 2>/dev/null | grep -qi "ELF.*executable" && elfs+=("$file_path")
-    done < <(find "$dir" -maxdepth 4 -type f ! -name '*.*' -print0 2>/dev/null)
+        case "${file_path,,}" in
+            *.dll|*.so|*.so.*|*.dat|*.rgssad|*.ini|*.txt|*.png|*.cfg|*.conf) continue ;;
+        esac
+        candidates+=("$file_path")
+    done < <(find "$dir" -maxdepth 4 -type f -print0 2>/dev/null)
 
+    if (( ${#candidates[@]} > 0 )); then
+        local file_output i=0 desc
+        file_output=$(file -b -- "${candidates[@]}" 2>/dev/null)
+        while IFS= read -r desc; do
+            [[ "$desc" =~ ELF.*executable ]] && elfs+=("${candidates[$i]}")
+            i=$((i+1))
+        done <<< "$file_output"
+    fi
     local candidate=""
     for elf in "${elfs[@]}"; do
         local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
@@ -76,6 +88,14 @@ find_linux_exe() {
         for elf in "${elfs[@]}"; do
             local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
             if [[ "$elf_name" == *launcher* ]]; then
+                candidate="$elf"; break
+            fi
+        done
+    fi
+    if [[ -z "$candidate" ]]; then
+        for elf in "${elfs[@]}"; do
+            local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
+            if [[ "$elf_name" == *x86_64* ]] || [[ "$elf_name" == *amd64* ]]; then
                 candidate="$elf"; break
             fi
         done
@@ -132,6 +152,9 @@ find_runtime() {
 # PROTON
 # ===============
 
+PROTON_BIN_CACHE=""
+PROTON_BIN_CACHE_SET=false
+
 get_proton() {
     local appid="$1" var="PROTON_${appid}"
     if [[ -n "${!var:-}" ]]; then
@@ -140,15 +163,20 @@ get_proton() {
     if [[ -n "${PROTON_DEFAULT:-}" ]] && [[ -f "$PROTON_DEFAULT" ]]; then
         echo "$PROTON_DEFAULT"; return
     fi
+    if $PROTON_BIN_CACHE_SET; then
+        echo "$PROTON_BIN_CACHE"; return
+    fi
     for library in "${LIBRARIES[@]}"; do
         local common_dir="$library/steamapps/common"
         [[ -d "$common_dir" ]] || continue
         while IFS= read -r -d '' proton_bin; do
             if [[ -x "$proton_bin" ]]; then
+                PROTON_BIN_CACHE="$proton_bin"; PROTON_BIN_CACHE_SET=true
                 echo "$proton_bin"; return
             fi
         done < <(find "$common_dir" -maxdepth 3 -name 'proton' -type f -print0 2>/dev/null)
     done
+    PROTON_BIN_CACHE=""; PROTON_BIN_CACHE_SET=true
     echo ""
 }
 
@@ -157,6 +185,15 @@ get_proton_label() {
     proton_path=$(get_proton "$1")
     [[ -z "$proton_path" ]] && { echo "Proton"; return; }
     basename "$(dirname "$proton_path")"
+}
+
+# ===============
+# HISTÓRICO PRÓPRIO
+# ===============
+
+mark_played() {
+    mkdir -p "$CONFIG_DIR/lastplayed"
+    date +%s > "$CONFIG_DIR/lastplayed/$1"
 }
 
 # ===============
@@ -236,21 +273,14 @@ launch_native() {
         check_deps32_status
     fi
 
-    $DEBUG && log_debug "[OK] tentativa direta: ./$exe_name" || true
-    $DEBUG && status_box_add "tentando iniciar (nativo) .."
-    exec_game "$dir" "$exe_name" "$params" "$DEBUG"
-    GAME_PID=$!; loading_dots 1 "Aguardando"
-
-    if kill -0 "$GAME_PID" 2>/dev/null; then
-        _launch_native_wait "$name" "$GAME_PID" "direto"
-        GAME_PID=""; return
-    fi
-    wait "$GAME_PID" 2>/dev/null || true
-    $DEBUG && log_debug "[ERROR] tentativa direta falhou" || true
+    local skip_runtime=false rt_id
+    for rt_id in "${RUNTIME_INCOMPATIBLE_APPIDS[@]}"; do
+        [[ "$rt_id" == "$appid" ]] && { skip_runtime=true; break; }
+    done
 
     local runtime
     runtime=$(find_runtime) || true
-    if [[ -n "$runtime" ]]; then
+    if [[ -n "$runtime" ]] && ! $skip_runtime; then
         $DEBUG && log_debug "[OK] tentativa via runtime: $runtime" || true
         $DEBUG && status_box_add "tentando via runtime .."
         if $DEBUG; then
@@ -260,12 +290,26 @@ launch_native() {
         fi
         GAME_PID=$!; loading_dots 1 "Aguardando"
         if kill -0 "$GAME_PID" 2>/dev/null; then
+            mark_played "$appid"
             _launch_native_wait "$name" "$GAME_PID" "via runtime"
             GAME_PID=""; return
         fi
         wait "$GAME_PID" 2>/dev/null || true
         $DEBUG && log_debug "[ERROR] tentativa via runtime falhou" || true
     fi
+
+    $DEBUG && log_debug "[OK] tentativa direta: ./$exe_name" || true
+    $DEBUG && status_box_add "tentando iniciar (nativo) .."
+    exec_game "$dir" "$exe_name" "$params" "$DEBUG"
+    GAME_PID=$!; loading_dots 1 "Aguardando"
+
+    if kill -0 "$GAME_PID" 2>/dev/null; then
+        mark_played "$appid"
+        _launch_native_wait "$name" "$GAME_PID" "direto"
+        GAME_PID=""; return
+    fi
+    wait "$GAME_PID" 2>/dev/null || true
+    $DEBUG && log_debug "[ERROR] tentativa direta falhou" || true
 
     local fallback_bins=()
     while IFS= read -r -d '' file_path; do
@@ -280,6 +324,7 @@ launch_native() {
         exec_game "$dir" "$fallback_name" "$params" "$DEBUG"
         GAME_PID=$!; loading_dots 1 "Aguardando"
         if kill -0 "$GAME_PID" 2>/dev/null; then
+            mark_played "$appid"
             _launch_native_wait "$name" "$GAME_PID" "via alternativa"
             GAME_PID=""; return
         fi
@@ -329,6 +374,7 @@ launch_proton() {
 
     if kill -0 "$GAME_PID" 2>/dev/null; then
         status_box_add "${CHECK} iniciado (pid: ${GAME_PID})"
+        mark_played "$appid"
 
         while kill -0 "$GAME_PID" 2>/dev/null; do
             sleep 2

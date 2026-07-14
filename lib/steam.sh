@@ -91,15 +91,21 @@ scan_games() {
             installdir=$(grep '"installdir"' "$manifest" | sed 's/.*"installdir"[[:space:]]*"\(.*\)"/\1/') || true
             last_played=$(grep '"LastPlayed"' "$manifest" | sed 's/.*"LastPlayed"[[:space:]]*"\(.*\)"/\1/') || true
             playtime=$(grep '"Playtime"' "$manifest" | sed 's/.*"Playtime"[[:space:]]*"\(.*\)"/\1/') || true
-            timestamp=${last_played:-$(stat --format='%Y' "$manifest" 2>/dev/null || echo 0)}
+            local own_ts=0
+            [[ -f "$CONFIG_DIR/lastplayed/$appid" ]] && own_ts=$(cat "$CONFIG_DIR/lastplayed/$appid" 2>/dev/null || echo 0)
+            local acf_ts=${last_played:-$(stat --format='%Y' "$manifest" 2>/dev/null || echo 0)}
+            timestamp=$(( own_ts > acf_ts ? own_ts : acf_ts ))
             platform="windows"
             local game_dir="$library/steamapps/common/$installdir"
             if [[ -d "$game_dir" ]]; then
                 while IFS= read -r -d '' bin; do
+                    case "${bin,,}" in
+                        *.dll|*.so|*.so.*|*.dat|*.rgssad|*.ini|*.txt|*.png|*.cfg|*.conf) continue ;;
+                    esac
                     if file -b "$bin" 2>/dev/null | grep -qi "ELF.*executable"; then
                         platform="linux"; break
                     fi
-                done < <(find "$game_dir" -maxdepth 2 -type f ! -name '*.*' -print0 2>/dev/null)
+                done < <(find "$game_dir" -maxdepth 1 -type f -print0 2>/dev/null)
             fi
             temp+=("$timestamp|$appid|$name|$installdir|$library|$platform|${playtime:-0}")
         done < <(find "$steamapps_dir" -maxdepth 1 -name 'appmanifest_*.acf' \
