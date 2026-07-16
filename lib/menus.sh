@@ -7,11 +7,14 @@
 
 show_game_menu() {
     local game="$1"
-    IFS='|' read -r appid name installdir library _ _ _ <<< "$game"
+    GAME_MENU_NEEDS_RESYNC=false
+    IFS='|' read -r appid name installdir library platform _ <<< "$game"
     $DEBUG && log_debug "menu: $name (appid $appid)" || true
 
     local linux_exe="" win_exe="" has_native=false has_proton=false
-    linux_exe=$(find_linux_exe "$installdir" "$library" 2>/dev/null) || true
+    if [[ "$platform" != "windows" ]]; then
+        linux_exe=$(find_linux_exe "$installdir" "$library" 2>/dev/null) || true
+    fi
     if [[ -n "$linux_exe" ]]; then
         has_native=true
     else
@@ -98,6 +101,7 @@ show_game_menu() {
                 elif [[ $has_proton == true ]]; then
                     launch_proton "$appid" "$name" "$win_exe"
                 fi
+                GAME_MENU_NEEDS_RESYNC=true
                 auto_return_delay 1.5
                 return ;;
             1) show_game_controller_menu "$appid" "$name" ;;
@@ -385,8 +389,10 @@ show_library_menu() {
         (( total == 0 )) && return
         local chosen_idx="${FILTERED_INDICES[$sel]}"
         show_game_menu "${GAMES[$chosen_idx]}"
-        scan_games || true
-        filter_games || true
+        if $GAME_MENU_NEEDS_RESYNC; then
+            scan_games || true
+            filter_games || true
+        fi
         if [[ ${#GAMES[@]} -eq 0 ]]; then 
             LIBRARY_DONE=true
             return
