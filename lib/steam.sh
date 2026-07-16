@@ -190,13 +190,15 @@ check_update() {
     local remote_version
     remote_version=$(curl -s --connect-timeout 3 "$CORE_URL" | grep '^VERSION=' | head -1 | cut -d'"' -f2) || true
     [[ -z "$remote_version" ]] || [[ "$remote_version" == "$VERSION" ]] && return
-
-    if confirm_dialog "Atualização" "Nova versão v${remote_version} disponível (atual v${VERSION}). Atualizar?"; then
+    local plain_question colored_question
+    plain_question="Nova versão v${remote_version} disponível (atual v${VERSION}). Atualizar?"
+    colored_question="Nova versão ${VERDE}v${remote_version}${NC} disponível (atual ${VERMELHO}v${VERSION}${NC}). Atualizar?"
+    if confirm_dialog "Atualização" "$plain_question" "$colored_question"; then
         $DEBUG && log_debug "[OK] atualizando v$VERSION -> v$remote_version" || true
         loading_dots 1 "Baixando v${remote_version}"
         curl -fsSL https://steamcli.pages.dev/install | bash
         ui_log "${CHECK} atualizado, reiniciando"
-        exec "$CONFIG_DIR/steam-tui" "$@"
+        exec "$CONFIG_DIR/steam-tui.sh" "$@"
     fi
 }
 

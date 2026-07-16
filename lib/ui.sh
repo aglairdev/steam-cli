@@ -432,15 +432,21 @@ _read_library_search_key() {
 # ===============
 
 confirm_dialog() {
-    local title="$1" question="$2"
+    local title="$1" question="$2" question_colored="${3:-$2}"
     _draw_confirm_dialog() {
         local sel="$1" allow_back="$2"
         render_logo
         box_top
         box_mid "$title"
-        local question_display
-        question_display=$(truncate_name "$question" $((BOXW - 4)))
-        box_row "  ${question_display}" "  ${NEGRITO}${question_display}${NC}"
+        local question_display question_display_colored
+        if (( $(display_width "$question") > BOXW - 4 )); then
+            question_display=$(truncate_name "$question" $((BOXW - 4)))
+            question_display_colored="$question_display"
+        else
+            question_display="$question"
+            question_display_colored="$question_colored"
+        fi
+        box_row "  ${question_display}" "  ${NEGRITO}${question_display_colored}${NC}"
         box_row_blank
         box_items "$sel" "Não" "Sim"
         box_bottom
