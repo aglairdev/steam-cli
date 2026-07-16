@@ -61,22 +61,27 @@ find_linux_exe() {
     local dir="$library/steamapps/common/$installdir"
     [[ -d "$dir" ]] || { $DEBUG && log_debug "[ERROR] diretório não encontrado: $dir"; return 1; }
     local installdir_lower="${installdir,,}" elfs=()
-    local candidates=()
-    while IFS= read -r -d '' file_path; do
-        case "${file_path,,}" in
-            *.dll|*.so|*.so.*|*.dat|*.rgssad|*.ini|*.txt|*.png|*.cfg|*.conf) continue ;;
-        esac
-        candidates+=("$file_path")
-    done < <(find "$dir" -maxdepth 4 -type f -print0 2>/dev/null)
+    local depth candidates=()
+    for depth in 1 2 4; do
+        candidates=()
+        while IFS= read -r -d '' file_path; do
+            case "${file_path,,}" in
+                *.dll|*.so|*.so.*|*.dat|*.rgssad|*.ini|*.txt|*.png|*.cfg|*.conf) continue ;;
+            esac
+            candidates+=("$file_path")
+        done < <(find "$dir" -maxdepth "$depth" -type f -print0 2>/dev/null)
 
-    if (( ${#candidates[@]} > 0 )); then
-        local file_output i=0 desc
-        file_output=$(file -b -- "${candidates[@]}" 2>/dev/null)
-        while IFS= read -r desc; do
-            [[ "$desc" =~ ELF.*executable ]] && elfs+=("${candidates[$i]}")
-            i=$((i+1))
-        done <<< "$file_output"
-    fi
+        if (( ${#candidates[@]} > 0 )); then
+            local file_output i=0 desc
+            file_output=$(file -b -- "${candidates[@]}" 2>/dev/null)
+            elfs=()
+            while IFS= read -r desc; do
+                [[ "$desc" =~ ELF.*executable ]] && elfs+=("${candidates[$i]}")
+                i=$((i+1))
+            done <<< "$file_output"
+        fi
+        (( ${#elfs[@]} > 0 )) && break
+    done
     local candidate=""
     for elf in "${elfs[@]}"; do
         local elf_name; elf_name=$(basename "$elf"); elf_name="${elf_name,,}"
