@@ -7,7 +7,8 @@ exec_game() {
     local params="$3"
     local is_debug="$4"
 
-    local game_cmd="./$exe"
+    local game_cmd
+    game_cmd=$(printf '%q' "./$exe")
     local final_cmd
 
     if [[ "$params" == *"%command%"* ]]; then
@@ -288,11 +289,12 @@ launch_native() {
     if [[ -n "$runtime" ]] && ! $skip_runtime; then
         $DEBUG && log_debug "[OK] tentativa via runtime: $runtime" || true
         $DEBUG && status_box_add "tentando via runtime .."
-        local runtime_cmd
+        local quoted_exe runtime_cmd
+        quoted_exe=$(printf '%q' "./$exe_name")
         if [[ "$params" == *"%command%"* ]]; then
-            runtime_cmd="${params//%command%/./$exe_name}"
+            runtime_cmd="${params//%command%/$quoted_exe}"
         else
-            runtime_cmd="$params ./$exe_name"
+            runtime_cmd="$params $quoted_exe"
         fi
         if $DEBUG; then
             (cd "$dir"; "$runtime" -- bash -c "$runtime_cmd" 2>&1 | grep -v -E '^gamemodeauto:') &
