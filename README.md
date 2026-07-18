@@ -16,6 +16,15 @@ Biblioteca steam TUI.
 
 </div>
 
+<div align="center">
+
+| Demo |
+|:------:|
+| <img src="https://github.com/user-attachments/assets/2e0d8197-d384-4f43-ad23-57dbb1899d06" alt="steam-tui demo" width="900"> |
+
+</div>
+
+
 ## Instalação
 
 **Requisitos:** `steam` · `bash` · `curl` · `nerdfonts`
