@@ -288,10 +288,16 @@ launch_native() {
     if [[ -n "$runtime" ]] && ! $skip_runtime; then
         $DEBUG && log_debug "[OK] tentativa via runtime: $runtime" || true
         $DEBUG && status_box_add "tentando via runtime .."
-        if $DEBUG; then
-            (cd "$dir"; "$runtime" -- eval "./$exe_name" $params) &
+        local runtime_cmd
+        if [[ "$params" == *"%command%"* ]]; then
+            runtime_cmd="${params//%command%/./$exe_name}"
         else
-            (cd "$dir"; "$runtime" -- "./$exe_name" $params &>/dev/null) &
+            runtime_cmd="$params ./$exe_name"
+        fi
+        if $DEBUG; then
+            (cd "$dir"; "$runtime" -- bash -c "$runtime_cmd" 2>&1 | grep -v -E '^gamemodeauto:') &
+        else
+            (cd "$dir"; "$runtime" -- bash -c "$runtime_cmd" &>/dev/null) &
         fi
         GAME_PID=$!; loading_dots 1 "Aguardando"
         if kill -0 "$GAME_PID" 2>/dev/null; then
