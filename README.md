@@ -1,11 +1,8 @@
 <div align="center">
 
-<a href="https://github.com/aglairdev/steam-tui">
-  <img width="500" height="100" alt="logotipo steam-tui"
-       src="https://github.com/user-attachments/assets/af6464f6-6fd5-45d5-a047-d79983504040" />
-</a>
-
-<hr>
+| Demo |
+|:------:|
+| <img src="https://github.com/user-attachments/assets/2e0d8197-d384-4f43-ad23-57dbb1899d06" alt="steam-tui demo" width="900"> |
 
 [![Release](https://img.shields.io/github/v/release/aglairdev/steam-tui?style=for-the-badge&color=94baf2&label=release)](https://github.com/aglairdev/steam-tui/releases)
 ![OS](https://img.shields.io/badge/OS-Linux-94baf2?style=for-the-badge&logo=linux&logoColor=white)
@@ -15,15 +12,6 @@
 Biblioteca steam TUI.
 
 </div>
-
-<div align="center">
-
-| Demo |
-|:------:|
-| <img src="https://github.com/user-attachments/assets/2e0d8197-d384-4f43-ad23-57dbb1899d06" alt="steam-tui demo" width="900"> |
-
-</div>
-
 
 ## Instalação
 
