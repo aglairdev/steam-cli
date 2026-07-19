@@ -1,8 +1,6 @@
 <div align="center">
 
-| Demo |
-|:------:|
-| <img src="https://github.com/user-attachments/assets/2e0d8197-d384-4f43-ad23-57dbb1899d06" alt="steam-tui demo" width="900"> |
+<video src="https://github.com/user-attachments/assets/1755d10f-b979-44e3-a8d4-41a4f2d01304" controls width="400"></video>
 
 [![Release](https://img.shields.io/github/v/release/aglairdev/steam-tui?style=for-the-badge&color=94baf2&label=release)](https://github.com/aglairdev/steam-tui/releases)
 ![OS](https://img.shields.io/badge/OS-Linux-94baf2?style=for-the-badge&logo=linux&logoColor=white)
